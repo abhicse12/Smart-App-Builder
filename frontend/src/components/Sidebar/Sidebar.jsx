@@ -1,79 +1,72 @@
 import {
-  LuLayoutDashboard,
-  LuFolder,
-  LuHistory,
-  LuSettings,
-  LuLogOut,
-} from "react-icons/lu";
+  LayoutDashboard,
+  FolderKanban,
+  History,
+  Settings,
+  LogOut,
+  Sparkles,
+} from "lucide-react";
+
+const menuItems = [
+  {
+    title: "Dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Projects",
+    icon: FolderKanban,
+  },
+  {
+    title: "History",
+    icon: History,
+  },
+  {
+    title: "Settings",
+    icon: Settings,
+  },
+];
 
 function Sidebar() {
   return (
-    <aside className="w-64 h-screen bg-slate-900 border-r border-slate-800">
-
+    <aside className="w-64 h-screen bg-slate-900 border-r border-slate-800 flex flex-col justify-between">
       {/* Logo */}
+      <div>
+        <div className="p-6 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <Sparkles className="text-white" size={20} />
+            </div>
 
-      <div className="h-20 flex items-center justify-center border-b border-slate-800">
+            <div>
+              <h2 className="text-white font-bold">AI App Builder</h2>
+              <p className="text-slate-400 text-xs">
+                Multi-Agent Platform
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <h1 className="text-2xl font-bold text-blue-500">
-
-          🤖 AI Builder
-
-        </h1>
-
+        {/* Menu */}
+        <nav className="mt-6 px-3">
+          {menuItems.map((item) => (
+            <button
+              key={item.title}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-white transition mb-2"
+            >
+              <item.icon size={20} />
+              <span>{item.title}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Menu */}
-
-      <nav className="p-4 space-y-3">
-
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg bg-blue-600">
-
-          <LuLayoutDashboard size={20} />
-
-          Dashboard
-
-        </button>
-
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-slate-800">
-
-          <LuFolder size={20} />
-
-          Projects
-
-        </button>
-
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-slate-800">
-
-          <LuHistory size={20} />
-
-          History
-
-        </button>
-
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-slate-800">
-
-          <LuSettings size={20} />
-
-          Settings
-
-        </button>
-
-      </nav>
-
-      {/* Bottom */}
-
-      <div className="absolute bottom-5 left-0 w-64 px-4">
-
-        <button className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-red-500">
-
-          <LuLogOut size={20} />
-
+      {/* Footer */}
+      <div className="p-4 border-t border-slate-800">
+        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition">
+          <LogOut size={20} />
           Logout
-
         </button>
-
       </div>
-
     </aside>
   );
 }

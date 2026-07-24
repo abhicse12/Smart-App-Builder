@@ -1,5 +1,11 @@
+import { Button } from "@/components/ui/button";
+
 function Home() {
-  return <h1>Home Page</h1>;
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <Button>Generate App</Button>
+    </div>
+  );
 }
 
 export default Home;

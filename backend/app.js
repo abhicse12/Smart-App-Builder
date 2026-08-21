@@ -1,0 +1,23 @@
+import express from "express";
+import cors from "cors";
+
+import projectRoutes from "./routes/projectRoutes.js";
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.use("/api/projects", projectRoutes);
+
+// Test route
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "AI App Builder Backend is running 🚀",
+  });
+});
+
+export default app;

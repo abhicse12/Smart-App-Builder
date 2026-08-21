@@ -1,28 +1,60 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Bot, Code2, ShieldCheck } from "lucide-react";
 
-const agents = [
-  {
-    name: "Architect Agent",
-    status: "Ready",
-    color: "bg-green-500",
-    icon: Bot,
-  },
-  {
-    name: "Coder Agent",
-    status: "Waiting",
-    color: "bg-yellow-500",
-    icon: Code2,
-  },
-  {
-    name: "Tester Agent",
-    status: "Waiting",
-    color: "bg-slate-500",
-    icon: ShieldCheck,
-  },
-];
+function AgentStatus({ isGenerating, agentStep }) {
+  const agents = [
+    {
+      name: "Architect Agent",
+      status:
+        agentStep === 0
+          ? "Running"
+          : agentStep >= 1
+          ? "Completed"
+          : "Ready",
+      color:
+        agentStep === 0
+          ? "bg-blue-500 animate-pulse"
+          : agentStep >= 1
+          ? "bg-green-500"
+          : "bg-slate-500",
+      icon: Bot,
+    },
 
-function AgentStatus() {
+    {
+      name: "Coder Agent",
+      status:
+        agentStep === 1
+          ? "Running"
+          : agentStep >= 2
+          ? "Completed"
+          : "Waiting",
+      color:
+        agentStep === 1
+          ? "bg-blue-500 animate-pulse"
+          : agentStep >= 2
+          ? "bg-green-500"
+          : "bg-yellow-500",
+      icon: Code2,
+    },
+
+    {
+      name: "Tester Agent",
+      status:
+        agentStep === 2
+          ? "Running"
+          : agentStep >= 3
+          ? "Completed"
+          : "Waiting",
+      color:
+        agentStep === 2
+          ? "bg-blue-500 animate-pulse"
+          : agentStep >= 3
+          ? "bg-green-500"
+          : "bg-slate-500",
+      icon: ShieldCheck,
+    },
+  ];
+
   return (
     <div className="mt-6">
       <h2 className="text-xl font-semibold text-white mb-4">

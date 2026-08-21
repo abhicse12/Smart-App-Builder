@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-function WelcomeBanner() {
+function WelcomeBanner({ onNewProject }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-gradient-to-r from-slate-900 to-slate-950 p-8 flex items-center justify-between">
       <div>
@@ -23,7 +23,7 @@ function WelcomeBanner() {
         </p>
       </div>
 
-      <Button size="lg">
+      <Button size="lg" onClick={onNewProject}>
         + New Project
       </Button>
     </div>

@@ -7,16 +7,21 @@ import PromptBox from "@/components/PromptBox/PromptBox";
 import AgentStatus from "@/components/AgentStatus/AgentStatus";
 import GenerationProgress from "@/components/GenerationProgress/GenerationProgress";
 import NewProject from "@/components/NewProject/NewProject";
+import ProjectsList from "@/components/ProjectsList/ProjectsList";
 
 function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [agentStep, setAgentStep] = useState(0);
+  const [projects, setProjects] = useState([]);
 
   // New Project modal
   const [showNewProject, setShowNewProject] = useState(false);
 
   const handleProjectCreated = (project) => {
-    console.log("New project:", project);
+    setProjects((prevProjects) => [
+      project,
+      ...prevProjects,
+    ]);
   };
 
   return (
@@ -39,6 +44,11 @@ function Dashboard() {
 
       <GenerationProgress
         agentStep={agentStep}
+      />
+
+      <ProjectsList
+        projects={projects}
+        setProjects={setProjects}
       />
 
       {showNewProject && (

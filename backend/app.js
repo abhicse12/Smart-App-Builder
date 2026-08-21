@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import generationRoutes from "./routes/generationRoutes.js";
 
 import projectRoutes from "./routes/projectRoutes.js";
 
@@ -11,6 +12,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/projects", projectRoutes);
+app.use("/api/generate", generationRoutes);
 
 // Test route
 app.get("/", (req, res) => {

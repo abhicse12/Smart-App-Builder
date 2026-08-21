@@ -45,3 +45,29 @@ export const getProjects = async (req, res) => {
     });
   }
 };
+
+export const getProjectById = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      project,
+    });
+  } catch (error) {
+    console.error("Get Project By ID Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch project",
+      error: error.message,
+    });
+  }
+};

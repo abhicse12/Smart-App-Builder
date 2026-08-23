@@ -71,3 +71,33 @@ export const getProjectById = async (req, res) => {
     });
   }
 };
+
+export const getProjectFiles = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id).select("name files");
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      projectId: project._id,
+      projectName: project.name,
+      files: project.files || [],
+    });
+  } catch (error) {
+    console.error("Get Project Files Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch project files",
+      error: error.message,
+    });
+  }
+};

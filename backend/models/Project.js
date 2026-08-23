@@ -20,12 +20,24 @@ const projectSchema = new mongoose.Schema(
       type: String,
       default: "active",
     },
+
+    files: [
+      {
+        path: {
+          type: String,
+          required: true,
+        },
+
+        content: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
   }
 );
 
-const Project = mongoose.model("Project", projectSchema);
-
-export default Project;
+export default mongoose.model("Project", projectSchema);

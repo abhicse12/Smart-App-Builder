@@ -1,4 +1,6 @@
 import generateApp from "../services/generationService.js";
+import Project from "../models/Project.js";
+import generateProjectFiles from "../services/fileGenerationService.js";
 
 export const generateProject = async (req, res) => {
   try {
@@ -11,12 +13,49 @@ export const generateProject = async (req, res) => {
       });
     }
 
+    // 1. Generate project using Gemini
     const result = await generateApp(prompt);
 
+    // 2. Find existing project
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    // 3. Format files and generate actual project files
+    const { projectRoot, formattedFiles } =
+      await generateProjectFiles(
+        projectId,
+        result.files
+      );
+
+    // 4. Save formatted AI-generated data into MongoDB
+    project.name = result.projectName;
+    project.description = result.description;
+    project.techStack = result.techStack;
+    project.files = formattedFiles;
+
+    // 5. Update status
+    project.status = "generated";
+
+    await project.save();
+
+    // 6. Send response
     res.status(200).json({
       success: true,
-      projectId,
-      result,
+      message: "Application generated successfully",
+      projectId: project._id,
+      projectPath: projectRoot,
+      result: {
+        projectName: result.projectName,
+        description: result.description,
+        techStack: result.techStack,
+        files: formattedFiles,
+      },
     });
   } catch (error) {
     console.error("Generation Error:", error);

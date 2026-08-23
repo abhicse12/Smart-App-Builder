@@ -1,11 +1,9 @@
-const generateApp = async (prompt) => {
-  // AI integration will be added here later
+import generateWithAI from "./aiService.js";
 
-  return {
-    success: true,
-    message: "Generation service is working",
-    prompt,
-  };
+const generateApp = async (prompt) => {
+  const result = await generateWithAI(prompt);
+
+  return result;
 };
 
 export default generateApp;

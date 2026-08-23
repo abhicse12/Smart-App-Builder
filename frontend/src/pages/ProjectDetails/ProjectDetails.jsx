@@ -21,7 +21,6 @@ function ProjectDetails() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [filesLoading, setFilesLoading] = useState(true);
 
-  // Fetch project details
   useEffect(() => {
     const fetchProject = async () => {
       try {
@@ -36,6 +35,12 @@ function ProjectDetails() {
         }
 
         setProject(data.project);
+
+        // If project is already generated
+        if (data.project.status === "generated") {
+          setAgentStep(3);
+          setIsGenerating(false);
+        }
       } catch (error) {
         console.error("Fetch Project Error:", error);
       } finally {
@@ -43,11 +48,6 @@ function ProjectDetails() {
       }
     };
 
-    fetchProject();
-  }, [id]);
-
-  // Fetch generated files
-  useEffect(() => {
     const fetchProjectFiles = async () => {
       try {
         const response = await fetch(
@@ -72,6 +72,7 @@ function ProjectDetails() {
       }
     };
 
+    fetchProject();
     fetchProjectFiles();
   }, [id]);
 

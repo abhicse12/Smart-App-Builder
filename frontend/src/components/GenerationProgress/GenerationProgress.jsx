@@ -1,18 +1,25 @@
-import { CheckCircle2, Loader2, Circle } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Circle,
+} from "lucide-react";
 
 function GenerationProgress({ agentStep }) {
   const steps = [
     {
       name: "Architect Agent",
-      description: "Analyzing requirements and designing architecture",
+      description:
+        "Analyzing requirements and designing architecture",
     },
     {
       name: "Coder Agent",
-      description: "Generating application source code",
+      description:
+        "Generating application source code",
     },
     {
       name: "Tester Agent",
-      description: "Testing generated application",
+      description:
+        "Testing generated application",
     },
   ];
 
@@ -25,16 +32,22 @@ function GenerationProgress({ agentStep }) {
       ? 75
       : 100;
 
+  const completed = agentStep >= 3;
+
   return (
     <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-xl font-semibold text-white">
-            Application Generation
+            {completed
+              ? "Application Generated"
+              : "Application Generation"}
           </h2>
 
           <p className="text-sm text-slate-400 mt-1">
-            AI agents are working on your application
+            {completed
+              ? "Your application has been generated successfully"
+              : "AI agents are working on your application"}
           </p>
         </div>
 
@@ -43,7 +56,6 @@ function GenerationProgress({ agentStep }) {
         </span>
       </div>
 
-      {/* Progress Bar */}
       <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-8">
         <div
           className="h-full bg-blue-600 transition-all duration-700"
@@ -51,18 +63,17 @@ function GenerationProgress({ agentStep }) {
         />
       </div>
 
-      {/* Steps */}
       <div className="space-y-5">
         {steps.map((step, index) => {
-          const completed = agentStep > index;
-          const running = agentStep === index;
+          const stepCompleted = agentStep > index;
+          const running = agentStep === index && !completed;
 
           return (
             <div
               key={step.name}
               className="flex items-center gap-4"
             >
-              {completed ? (
+              {stepCompleted || completed ? (
                 <CheckCircle2
                   className="text-green-500"
                   size={24}
@@ -85,7 +96,7 @@ function GenerationProgress({ agentStep }) {
                 </h3>
 
                 <p className="text-sm text-slate-500">
-                  {completed
+                  {stepCompleted || completed
                     ? "Completed successfully"
                     : running
                     ? step.description
@@ -96,6 +107,14 @@ function GenerationProgress({ agentStep }) {
           );
         })}
       </div>
+
+      {completed && (
+        <div className="mt-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4">
+          <p className="text-green-400 font-medium">
+            ✓ Application generation completed successfully
+          </p>
+        </div>
+      )}
     </div>
   );
 }

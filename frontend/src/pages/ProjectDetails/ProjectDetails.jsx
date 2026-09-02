@@ -5,7 +5,7 @@ import GenerationProgress from "@/components/GenerationProgress/GenerationProgre
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
-import { ArrowLeft, Code2, Calendar } from "lucide-react";
+import { ArrowLeft, Code2, Calendar, Copy, Check , Download,} from "lucide-react";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -20,6 +20,8 @@ function ProjectDetails() {
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filesLoading, setFilesLoading] = useState(true);
+
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -102,6 +104,29 @@ function ProjectDetails() {
       </div>
     );
   }
+
+  const handleCopy = async () => {
+    if (!selectedFile?.content) return;
+
+    try {
+      await navigator.clipboard.writeText(selectedFile.content);
+
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Failed to copy code:", error);
+    }
+  };
+
+  const handleDownload = () => {
+    window.open(
+      `http://localhost:5000/api/projects/${id}/download`,
+      "_blank"
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
@@ -194,9 +219,19 @@ function ProjectDetails() {
           {/* Generated Project */}
           <div className="mt-10">
 
-            <h2 className="text-2xl font-bold mb-5">
-              Generated Project
-            </h2>
+            <div className="mt-10 flex items-center justify-between">
+              <h2 className="text-2xl font-bold">
+                Generated Project
+              </h2>
+
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+              >
+                <Download size={18} />
+                Download ZIP
+              </button>
+            </div>
 
             {filesLoading ? (
               <p className="text-slate-400">
@@ -245,18 +280,32 @@ function ProjectDetails() {
                 {/* Code Viewer */}
                 <div className="md:col-span-2 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
 
-                  <div className="border-b border-slate-800 px-4 py-3 text-sm text-slate-400">
-                    {selectedFile?.path || "Select a file"}
+                  <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+                    <span className="text-sm text-slate-400">
+                      {selectedFile?.path || "Select a file"}
+                    </span>
+
+                    <button
+                      onClick={handleCopy}
+                      disabled={!selectedFile}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-sm text-white transition disabled:opacity-50"
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={16} className="text-green-400" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={16} />
+                          Copy
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   <pre className="p-5 overflow-auto max-h-[600px] text-sm text-slate-300 whitespace-pre-wrap break-words">
-                    <code>
-                      {selectedFile?.content
-                        ? selectedFile.content
-                            .replace(/\\r\\n/g, "\n")
-                            .replace(/\\n/g, "\n")
-                        : "No content"}
-                    </code>
+                    <code>{selectedFile?.content || "No content"}</code>
                   </pre>
 
                 </div>

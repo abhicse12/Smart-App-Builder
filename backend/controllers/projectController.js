@@ -1,4 +1,7 @@
 import Project from "../models/Project.js";
+import fs from "fs";
+import path from "path";
+import { ZipArchive } from "archiver";
 
 export const createProject = async (req, res) => {
   try {
@@ -99,5 +102,61 @@ export const getProjectFiles = async (req, res) => {
       message: "Failed to fetch project files",
       error: error.message,
     });
+  }
+};
+
+export const downloadProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    const projectPath = path.join(
+      process.cwd(),
+      "generated-projects",
+      id.toString()
+    );
+
+    if (!fs.existsSync(projectPath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Generated project files not found",
+      });
+    }
+
+    res.attachment(`${project.name || "generated-project"}.zip`);
+
+    const archive = new ZipArchive({
+      zlib: { level: 9 },
+    });
+
+    archive.on("error", (error) => {
+      console.error("Archive Error:", error);
+      res.destroy(error);
+    });
+
+    archive.pipe(res);
+
+    archive.directory(projectPath, false);
+
+    await archive.finalize();
+
+  } catch (error) {
+    console.error("Download Project Error:", error);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to download project",
+        error: error.message,
+      });
+    }
   }
 };

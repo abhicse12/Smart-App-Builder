@@ -13,7 +13,7 @@ export const generateProject = async (req, res) => {
       });
     }
 
-    // 1. Generate project using Gemini
+    // 1. Generate project using AI
     const result = await generateApp(prompt);
 
     // 2. Find existing project
@@ -26,30 +26,42 @@ export const generateProject = async (req, res) => {
       });
     }
 
-    // 3. Format files and generate actual project files
+    // Optional: Stop if validation failed
+    if (result.validation && !result.validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: "Generated project validation failed",
+        validation: result.validation,
+      });
+    }
+
+    // 3. Generate and format actual project files
     const { projectRoot, formattedFiles } =
       await generateProjectFiles(
         projectId,
         result.files
       );
 
-    // 4. Save formatted AI-generated data into MongoDB
+    // 4. Save generated data into MongoDB
     project.name = result.projectName;
     project.description = result.description;
     project.techStack = result.techStack;
     project.files = formattedFiles;
 
-    // 5. Update status
+    // 5. Update project status
     project.status = "generated";
 
     await project.save();
 
     // 6. Send response
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Application generated successfully",
       projectId: project._id,
       projectPath: projectRoot,
+
+      validation: result.validation,
+
       result: {
         projectName: result.projectName,
         description: result.description,
@@ -60,7 +72,7 @@ export const generateProject = async (req, res) => {
   } catch (error) {
     console.error("Generation Error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to generate application",
       error: error.message,

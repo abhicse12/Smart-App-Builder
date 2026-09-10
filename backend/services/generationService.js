@@ -1,16 +1,17 @@
 import createProjectArchitecture from "./architectService.js";
 import generateBatchCode from "./batchCoderService.js";
 import validateProject from "./validatorService.js";
+import fixProject from "./fixerService.js";
 
 const BATCH_SIZE = 4;
+const MAX_FIX_ATTEMPTS = 3;
 
 const generateApp = async (prompt) => {
-  // ==============================
-  // STEP 1: Create architecture
-  // ==============================
+  // ==========================================
+  // 1. ARCHITECT AGENT
+  // ==========================================
 
-  const architecture =
-    await createProjectArchitecture(prompt);
+  const architecture = await createProjectArchitecture(prompt);
 
   console.log(
     "Architecture created:",
@@ -22,11 +23,11 @@ const generateApp = async (prompt) => {
     architecture.files.length
   );
 
-  // ==============================
-  // STEP 2: Generate files in batches
-  // ==============================
-
   const generatedFiles = [];
+
+  // ==========================================
+  // 2. CODER AGENT - BATCH GENERATION
+  // ==========================================
 
   for (
     let i = 0;
@@ -41,9 +42,7 @@ const generateApp = async (prompt) => {
     const batchNumber =
       Math.floor(i / BATCH_SIZE) + 1;
 
-    console.log(
-      `\nGenerating Batch ${batchNumber}`
-    );
+    console.log(`\nGenerating Batch ${batchNumber}`);
 
     console.log(
       "Requested files:",
@@ -59,7 +58,6 @@ const generateApp = async (prompt) => {
         allFiles: architecture.files,
       });
 
-      // Validate response structure
       if (
         !result ||
         !Array.isArray(result.files)
@@ -69,28 +67,24 @@ const generateApp = async (prompt) => {
         );
       }
 
-      // Requested paths
       const requestedPaths = batch.map(
         (file) => file.path
       );
 
-      // Generated paths
       const generatedPaths = result.files.map(
         (file) => file.path
       );
 
-      // Find missing files
       const missingFiles =
         requestedPaths.filter(
-          (path) =>
-            !generatedPaths.includes(path)
+          (filePath) =>
+            !generatedPaths.includes(filePath)
         );
 
-      // Find unexpected files
       const unexpectedFiles =
         generatedPaths.filter(
-          (path) =>
-            !requestedPaths.includes(path)
+          (filePath) =>
+            !requestedPaths.includes(filePath)
         );
 
       if (missingFiles.length > 0) {
@@ -107,7 +101,6 @@ const generateApp = async (prompt) => {
         );
       }
 
-      // Add generated files
       generatedFiles.push(...result.files);
 
       console.log(
@@ -117,7 +110,6 @@ const generateApp = async (prompt) => {
       console.log(
         `Total generated files: ${generatedFiles.length}`
       );
-
     } catch (error) {
       console.error(
         `Batch ${batchNumber} generation failed:`,
@@ -128,50 +120,148 @@ const generateApp = async (prompt) => {
     }
   }
 
-  // ==============================
-  // STEP 3: Create generated project
-  // ==============================
+  // ==========================================
+  // 3. CREATE PROJECT OBJECT
+  // ==========================================
 
-  const generatedProject = {
+  let generatedProject = {
     projectName: architecture.projectName,
     description: architecture.description,
     techStack: architecture.techStack,
     files: generatedFiles,
   };
 
-  // ==============================
-  // STEP 4: Validate project
-  // ==============================
+  // ==========================================
+  // 4. INITIAL VALIDATION
+  // ==========================================
 
-  const validation =
+  let validation =
     validateProject(generatedProject);
 
   console.log(
-    "\nValidation Result:",
+    "\nInitial Validation Result:",
     validation
   );
 
-  if (!validation.valid) {
-    console.warn(
-      "\nProject validation failed!"
+  // ==========================================
+  // 5. FIXER AGENT
+  // ==========================================
+
+  let fixAttempt = 0;
+
+  while (
+    !validation.valid &&
+    fixAttempt < MAX_FIX_ATTEMPTS
+  ) {
+    fixAttempt++;
+
+    console.log(
+      `\nFixer Agent Attempt ${fixAttempt}/${MAX_FIX_ATTEMPTS}`
     );
 
-    console.warn(
+    console.log(
+      "Errors:",
       validation.errors
     );
-  } else {
-    console.log(
-      "\nProject validation successful!"
-    );
+
+    try {
+      const fixResult = await fixProject({
+        projectName:
+          generatedProject.projectName,
+
+        description:
+          generatedProject.description,
+
+        techStack:
+          generatedProject.techStack,
+
+        errors:
+          validation.errors,
+
+        files:
+          generatedProject.files,
+      });
+
+      if (
+        !fixResult ||
+        !Array.isArray(fixResult.files)
+      ) {
+        throw new Error(
+          "Invalid Fixer Agent response"
+        );
+      }
+
+      console.log(
+        "Fixer modified files:",
+        fixResult.files.map(
+          (file) => file.path
+        )
+      );
+
+      // ========================================
+      // Replace corrected files
+      // ========================================
+
+      const fileMap = new Map(
+        generatedProject.files.map(
+          (file) => [file.path, file]
+        )
+      );
+
+      for (const fixedFile of fixResult.files) {
+        fileMap.set(
+          fixedFile.path,
+          fixedFile
+        );
+      }
+
+      generatedProject.files =
+        Array.from(fileMap.values());
+
+      // ========================================
+      // Re-validate
+      // ========================================
+
+      validation =
+        validateProject(generatedProject);
+
+      console.log(
+        `Validation after fix attempt ${fixAttempt}:`,
+        validation
+      );
+    } catch (error) {
+      console.error(
+        "Fixer Agent failed:",
+        error.message
+      );
+
+      break;
+    }
   }
 
-  // ==============================
-  // STEP 5: Return final project
-  // ==============================
+  // ==========================================
+  // 6. FINAL RESULT
+  // ==========================================
+
+  if (validation.valid) {
+    console.log(
+      "\n✅ Project validation successful!"
+    );
+  } else {
+    console.warn(
+      "\n❌ Project validation failed!"
+    );
+
+    console.warn(
+      "Remaining errors:",
+      validation.errors
+    );
+  }
 
   return {
     ...generatedProject,
     validation,
+    fixerAttempts: fixAttempt,
   };
 };
 

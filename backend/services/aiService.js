@@ -3,6 +3,33 @@ import { GoogleGenAI } from "@google/genai";
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+const parseAIJson = (text) => {
+  const cleaned = text
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error(
+        "AI response does not contain valid JSON"
+      );
+    }
+
+    const jsonText = cleaned.slice(
+      firstBrace,
+      lastBrace + 1
+    );
+
+    return JSON.parse(jsonText);
+  }
+};
+
 const generateWithAI = async (prompt, retries = 5) => {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not loaded");
@@ -17,7 +44,6 @@ const generateWithAI = async (prompt, retries = 5) => {
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-lite",
         contents: prompt,
-
         config: {
           responseMimeType: "application/json",
         },
@@ -25,7 +51,7 @@ const generateWithAI = async (prompt, retries = 5) => {
 
       const text = response.text;
 
-      return JSON.parse(text);
+      return parseAIJson(text);
     } catch (error) {
       console.error(
         `AI Request failed: Attempt ${attempt}/${retries}`,

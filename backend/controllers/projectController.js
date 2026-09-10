@@ -160,3 +160,46 @@ export const downloadProject = async (req, res) => {
     }
   }
 };
+
+export const runProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const project = await Project.findById(id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    const projectPath = path.join(
+      process.cwd(),
+      "generated-projects",
+      id.toString()
+    );
+
+    if (!fs.existsSync(projectPath)) {
+      return res.status(404).json({
+        success: false,
+        message: "Generated project files not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Project is ready to run",
+      projectId: project._id,
+      projectPath,
+    });
+  } catch (error) {
+    console.error("Run Project Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to prepare project",
+      error: error.message,
+    });
+  }
+};

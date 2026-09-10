@@ -8,7 +8,7 @@ const generateBatchCode = async ({
   allFiles,
 }) => {
   const batchPrompt = `
-You are the Coder Agent in an AI application builder.
+You are the Coder Agent of an AI application builder.
 
 Project Name:
 ${projectName}
@@ -19,8 +19,9 @@ ${description}
 Technology Stack:
 ${techStack.join(", ")}
 
-You need to generate code for the following files:
+Generate complete source code ONLY for the requested files.
 
+REQUESTED FILES:
 ${files
   .map(
     (file) => `
@@ -30,40 +31,171 @@ Purpose: ${file.purpose}
   )
   .join("\n")}
 
-Complete project file structure:
-
+COMPLETE PROJECT STRUCTURE:
 ${allFiles.map((file) => `- ${file.path}`).join("\n")}
 
-IMPORTANT RULES:
+==================================================
+STRICT RULES
+==================================================
 
-1. Generate ALL requested files completely.
-2. Do not skip any requested file.
-3. Do not generate files outside the requested batch.
-4. Generate production-ready code.
-5. Every import must point to a file in the project structure.
-6. Include correct dependencies.
-7. Do not use placeholder code.
-8. Keep proper formatting and indentation.
-9. Do not use markdown.
-10. Do not use code fences.
-11. Return ONLY valid JSON.
+1. Generate EVERY requested file.
 
-The response MUST follow exactly this format:
+2. Do NOT generate files outside the requested batch.
+
+3. Do NOT omit any requested file.
+
+4. Every import must refer to an existing file in the complete project structure.
+
+5. Every dependency used in code MUST exist in the appropriate package.json.
+
+6. Routes and controllers MUST match exactly.
+
+7. If a route imports a controller function, that exact function MUST be exported by the controller.
+
+8. If a controller imports a model, that exact model MUST exist.
+
+9. Do NOT invent function names that are not defined/exported.
+
+10. Do NOT change the application's business logic.
+
+11. Follow the architecture blueprint exactly.
+
+==================================================
+BILLING RULES
+==================================================
+
+This application uses DAILY billing.
+
+NEVER convert the billing system to hourly billing.
+
+Use these concepts:
+
+- numberOfDays
+- nurseDailyRate
+- patientDailyRate
+- nurseAmount
+- patientAmount
+- companyMargin
+
+Calculations:
+
+Patient Amount =
+numberOfDays × patientDailyRate
+
+Nurse Amount =
+numberOfDays × nurseDailyRate
+
+Company Margin =
+patientAmount - nurseAmount
+
+Do NOT use:
+
+- hoursWorked
+- hourlyRate
+- hourlyRatePaidToNurse
+- hourlyRateChargedToPatient
+
+unless they explicitly exist in the architecture blueprint.
+
+Billing calculations MUST be performed on the backend.
+
+==================================================
+ROUTE / CONTROLLER CONSISTENCY
+==================================================
+
+Before returning the response, internally verify:
+
+For every route:
+
+route → controller function
+
+For every controller:
+
+controller → model/service
+
+All names must match exactly.
+
+For example:
+
+If route contains:
+
+router.post("/assignments", createAssignment);
+
+then the controller MUST contain:
+
+exports.createAssignment = ...
+
+or the equivalent export format.
+
+If a function does not exist, do NOT import it.
+
+==================================================
+FRONTEND / BACKEND CONSISTENCY
+==================================================
+
+Every frontend API request must correspond to an existing backend route.
+
+Use the exact API paths defined by the backend architecture.
+
+Do not invent API endpoints.
+
+==================================================
+PROJECT STRUCTURE
+==================================================
+
+Use ONLY:
+
+backend/
+frontend/
+
+Do NOT create:
+
+client/
+server/
+
+For frontend use:
+
+React + Vite
+
+Do NOT use:
+
+react-scripts
+
+==================================================
+CODE QUALITY
+==================================================
+
+- Complete implementation
+- No placeholder functions
+- No TODO implementations
+- Proper error handling
+- Proper validation
+- Clean formatting
+- Consistent naming
+- Production-style structure
+
+==================================================
+OUTPUT FORMAT
+==================================================
+
+Return ONLY valid JSON.
+
+Exactly:
 
 {
   "files": [
     {
       "path": "file-path",
-      "content": "complete file content"
+      "content": "complete source code"
     }
   ]
 }
 
-IMPORTANT:
-
 The number of generated files MUST equal the number of requested files.
 
-Do not omit any file.
+Do NOT include markdown.
+Do NOT include code fences.
+Do NOT include explanations outside JSON.
 `;
 
   return await generateWithAI(batchPrompt);

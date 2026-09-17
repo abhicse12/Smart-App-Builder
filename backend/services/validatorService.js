@@ -5,6 +5,10 @@ const validateProject = (project) => {
   const warnings = [];
   const files = project.files || [];
 
+  // =====================================
+  // 0. Basic validation
+  // =====================================
+
   if (!Array.isArray(files) || files.length === 0) {
     return {
       valid: false,
@@ -120,7 +124,7 @@ const validateProject = (project) => {
           );
         }
       } catch {
-        // Already handled above
+        // Already handled by package.json validation
       }
     }
   }
@@ -195,15 +199,11 @@ const validateProject = (project) => {
   };
 
   // =====================================
-  // 6. Validate ES module imports
+  // 6 + 7. Validate imports
   // =====================================
 
   const esImportRegex =
     /import\s+(?:(?:[\s\S]*?)\s+from\s+)?["']([^"']+)["']/g;
-
-  // =====================================
-  // 7. Validate CommonJS require()
-  // =====================================
 
   const requireRegex =
     /require\s*\(\s*["']([^"']+)["']\s*\)/g;
@@ -217,7 +217,9 @@ const validateProject = (project) => {
       normalizedFilePath.endsWith(".ts") ||
       normalizedFilePath.endsWith(".tsx");
 
-    if (!isCodeFile) continue;
+    if (!isCodeFile) {
+      continue;
+    }
 
     const importPaths = [];
 
@@ -236,6 +238,9 @@ const validateProject = (project) => {
     }
 
     for (const importPath of importPaths) {
+      // Only validate local relative imports.
+      // Packages like express, mongoose, react etc. are
+      // handled separately through package.json.
       if (
         !importPath.startsWith("./") &&
         !importPath.startsWith("../")
@@ -301,10 +306,16 @@ const validateProject = (project) => {
       const controllerContent =
         fileMap.get(actualControllerPath);
 
-      if (!controllerContent) continue;
+      if (!controllerContent) {
+        continue;
+      }
 
-      // Extract destructured imports:
-      // const { createBill, getBills } = require(...)
+      // Example:
+      // const {
+      //   createBill,
+      //   getBills
+      // } = require("../controllers/billController");
+
       const destructuredMatch =
         file.content.match(
           /const\s*\{([^}]+)\}\s*=\s*require\s*\(\s*["'][^"']*controllers\/[^"']+["']\s*\)/
@@ -344,7 +355,158 @@ const validateProject = (project) => {
   }
 
   // =====================================
-  // 9. Billing logic validation
+  // 9. Model → Method consistency
+  // =====================================
+  //
+  // Detects runtime bugs like:
+  //
+  // const user = await User.findOne(...)
+  // user.matchPassword(...)
+  //
+  // when User.js does NOT define:
+  //
+  // userSchema.methods.matchPassword = ...
+  //
+  // =====================================
+
+  const modelMethods = new Map();
+
+  // -------------------------------------
+  // 9.1 Collect methods from model files
+  // -------------------------------------
+
+  for (const file of files) {
+    const normalizedPath = normalizePath(file.path);
+
+    if (!normalizedPath.includes("/models/")) {
+      continue;
+    }
+
+    // Find:
+    // userSchema.methods.matchPassword = ...
+    // patientSchema.methods.someMethod = ...
+    const methodMatches = [
+      ...file.content.matchAll(
+        /\w+Schema\.methods\.(\w+)\s*=/g
+      ),
+    ];
+
+    const methods = methodMatches.map(
+      (match) => match[1]
+    );
+
+    const modelNameMatch =
+      file.content.match(
+        /mongoose\.model\(\s*["']([^"']+)["']/
+      );
+
+    if (!modelNameMatch) {
+      continue;
+    }
+
+    const modelName = modelNameMatch[1];
+
+    modelMethods.set(modelName, methods);
+  }
+
+  // -------------------------------------
+  // 9.2 Check controller/service usage
+  // -------------------------------------
+
+  for (const file of files) {
+    const normalizedPath = normalizePath(file.path);
+
+    const isControllerOrService =
+      normalizedPath.includes("/controllers/") ||
+      normalizedPath.includes("/services/");
+
+    if (!isControllerOrService) {
+      continue;
+    }
+
+    // Example:
+    //
+    // const User = require("../models/User");
+    //
+    const modelImports = [
+      ...file.content.matchAll(
+        /(?:const|let|var)\s+(\w+)\s*=\s*require\s*\(\s*["'][^"']*\/models\/(\w+)["']\s*\)/g
+      ),
+    ];
+
+    for (const match of modelImports) {
+      const modelVariable = match[1];
+      const modelName = match[2];
+
+      const allowedMethods =
+        modelMethods.get(modelName) || [];
+
+      // Find documents returned from mongoose queries:
+      //
+      // const user = await User.findOne(...)
+      // const patient = await Patient.findById(...)
+      //
+      const documentQueryRegex = new RegExp(
+        `(?:const|let|var)\\s+(\\w+)\\s*=\\s*await\\s+${modelVariable}\\.(findOne|findById|findByIdAndUpdate|findByIdAndDelete|findOneAndUpdate|findOneAndDelete)\\s*\\(`,
+        "g"
+      );
+
+      const documentVariables = [
+        ...file.content.matchAll(
+          documentQueryRegex
+        ),
+      ].map((match) => match[1]);
+
+      for (const documentVariable of documentVariables) {
+        // Find:
+        //
+        // user.matchPassword(...)
+        // patient.someMethod(...)
+        //
+        const methodCallRegex = new RegExp(
+          `\\b${documentVariable}\\.(\\w+)\\s*\\(`,
+          "g"
+        );
+
+        const methodCalls = [
+          ...file.content.matchAll(
+            methodCallRegex
+          ),
+        ];
+
+        for (const methodMatch of methodCalls) {
+          const methodName = methodMatch[1];
+
+          // Normal Mongoose/document methods that
+          // should NOT be considered custom model methods.
+          const ignoredMethods = [
+            "save",
+            "populate",
+            "select",
+            "lean",
+            "exec",
+            "toObject",
+            "toJSON",
+            "validate",
+            "validateSync",
+          ];
+
+          if (ignoredMethods.includes(methodName)) {
+            continue;
+          }
+
+          if (!allowedMethods.includes(methodName)) {
+            errors.push(
+              `Model method mismatch in ${normalizedPath}: "${documentVariable}.${methodName}()" is used, but ${modelName} model does not define schema.methods.${methodName}().`
+            );
+          }
+        }
+      }
+    }
+  }
+
+  // =====================================
+  // 10. Billing logic validation
   // =====================================
 
   const billingFiles = files.filter((file) => {
@@ -373,7 +535,7 @@ const validateProject = (project) => {
   }
 
   // =====================================
-  // 10. Required daily billing fields
+  // 11. Required daily billing fields
   // =====================================
 
   const billModel = fileMap.get(
@@ -397,7 +559,7 @@ const validateProject = (project) => {
   }
 
   // =====================================
-  // 11. Final result
+  // 12. Final result
   // =====================================
 
   return {

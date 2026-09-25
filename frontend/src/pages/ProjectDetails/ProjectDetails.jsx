@@ -5,7 +5,17 @@ import GenerationProgress from "@/components/GenerationProgress/GenerationProgre
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
-import { ArrowLeft, Code2, Calendar, Copy, Check , Download,} from "lucide-react";
+import {
+  ArrowLeft,
+  Code2,
+  Calendar,
+  Copy,
+  Check,
+  Download,
+  Play,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -23,6 +33,11 @@ function ProjectDetails() {
 
   const [copied, setCopied] = useState(false);
 
+  // Runner states
+  const [isRunning, setIsRunning] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [runError, setRunError] = useState("");
+
   useEffect(() => {
     const fetchProject = async () => {
       try {
@@ -33,12 +48,13 @@ function ProjectDetails() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch project");
+          throw new Error(
+            data.message || "Failed to fetch project"
+          );
         }
 
         setProject(data.project);
 
-        // If project is already generated
         if (data.project.status === "generated") {
           setAgentStep(3);
           setIsGenerating(false);
@@ -59,7 +75,9 @@ function ProjectDetails() {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.message || "Failed to fetch files");
+          throw new Error(
+            data.message || "Failed to fetch files"
+          );
         }
 
         setFiles(data.files || []);
@@ -68,7 +86,10 @@ function ProjectDetails() {
           setSelectedFile(data.files[0]);
         }
       } catch (error) {
-        console.error("Fetch Project Files Error:", error);
+        console.error(
+          "Fetch Project Files Error:",
+          error
+        );
       } finally {
         setFilesLoading(false);
       }
@@ -78,7 +99,100 @@ function ProjectDetails() {
     fetchProjectFiles();
   }, [id]);
 
+  // =========================================
+  // Run Project
+  // =========================================
+
+  const handleRunProject = async () => {
+    try {
+      setIsRunning(true);
+      setRunError("");
+      setPreviewUrl("");
+
+      const response = await fetch(
+        `http://localhost:5000/api/projects/${id}/run`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to run project"
+        );
+      }
+
+      const url =
+        data?.runner?.frontend?.previewUrl;
+
+      if (!url) {
+        throw new Error(
+          "Preview URL was not returned by Runner Agent"
+        );
+      }
+
+      setPreviewUrl(url);
+
+      console.log(
+        "Project started successfully:",
+        data
+      );
+    } catch (error) {
+      console.error("Run Project Error:", error);
+
+      setRunError(
+        error.message || "Failed to run project"
+      );
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // =========================================
+  // Copy code
+  // =========================================
+
+  const handleCopy = async () => {
+    if (!selectedFile?.content) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        selectedFile.content
+      );
+
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (error) {
+      console.error(
+        "Failed to copy code:",
+        error
+      );
+    }
+  };
+
+  // =========================================
+  // Download project
+  // =========================================
+
+  const handleDownload = () => {
+    window.open(
+      `http://localhost:5000/api/projects/${id}/download`,
+      "_blank"
+    );
+  };
+
+  // =========================================
   // Loading project
+  // =========================================
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
@@ -87,7 +201,10 @@ function ProjectDetails() {
     );
   }
 
+  // =========================================
   // Project not found
+  // =========================================
+
   if (!project) {
     return (
       <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
@@ -105,33 +222,10 @@ function ProjectDetails() {
     );
   }
 
-  const handleCopy = async () => {
-    if (!selectedFile?.content) return;
-
-    try {
-      await navigator.clipboard.writeText(selectedFile.content);
-
-      setCopied(true);
-
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
-    } catch (error) {
-      console.error("Failed to copy code:", error);
-    }
-  };
-
-  const handleDownload = () => {
-    window.open(
-      `http://localhost:5000/api/projects/${id}/download`,
-      "_blank"
-    );
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-white p-6">
-
       {/* Back button */}
+
       <button
         onClick={() => navigate("/dashboard")}
         className="flex items-center gap-2 text-slate-400 hover:text-white mb-8"
@@ -140,13 +234,13 @@ function ProjectDetails() {
         Back to Dashboard
       </button>
 
-      <div className="max-w-5xl mx-auto">
-
+      <div className="max-w-6xl mx-auto">
         <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
+          {/* =========================================
+              Project Header
+          ========================================= */}
 
-          {/* Project Header */}
           <div className="flex items-start justify-between">
-
             <div>
               <h1 className="text-4xl font-bold">
                 {project.name}
@@ -160,13 +254,14 @@ function ProjectDetails() {
             <span className="px-3 py-1 rounded-full text-sm bg-emerald-500/10 text-emerald-400">
               {project.status}
             </span>
-
           </div>
 
-          {/* Tech Stack */}
+          {/* =========================================
+              Tech Stack
+          ========================================= */}
+
           {project.techStack?.length > 0 && (
             <div className="mt-8">
-
               <div className="flex items-center gap-2 mb-3">
                 <Code2 size={18} />
 
@@ -185,21 +280,27 @@ function ProjectDetails() {
                   </span>
                 ))}
               </div>
-
             </div>
           )}
 
-          {/* Created Date */}
+          {/* =========================================
+              Created Date
+          ========================================= */}
+
           <div className="mt-8 flex items-center gap-2 text-slate-500 text-sm">
             <Calendar size={16} />
 
             Created{" "}
-            {new Date(project.createdAt).toLocaleDateString()}
+            {new Date(
+              project.createdAt
+            ).toLocaleDateString()}
           </div>
 
-          {/* AI Builder */}
-          <div className="mt-8">
+          {/* =========================================
+              AI Builder
+          ========================================= */}
 
+          <div className="mt-8">
             <PromptBox
               setIsGenerating={setIsGenerating}
               setAgentStep={setAgentStep}
@@ -213,13 +314,117 @@ function ProjectDetails() {
             <GenerationProgress
               agentStep={agentStep}
             />
-
           </div>
 
-          {/* Generated Project */}
-          <div className="mt-10">
+          {/* =========================================
+              Run Project Section
+          ========================================= */}
 
-            <div className="mt-10 flex items-center justify-between">
+          <div className="mt-10 rounded-xl border border-slate-800 bg-slate-950 p-5">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold">
+                  Run Project
+                </h2>
+
+                <p className="text-sm text-slate-400 mt-1">
+                  Start the generated application inside
+                  the Docker sandbox.
+                </p>
+              </div>
+
+              <button
+                onClick={handleRunProject}
+                disabled={isRunning}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2
+                      size={18}
+                      className="animate-spin"
+                    />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play size={18} />
+                    Run Project
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Run Error */}
+
+            {runError && (
+              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                {runError}
+              </div>
+            )}
+          </div>
+
+          {/* =========================================
+              Live Preview
+          ========================================= */}
+
+          {previewUrl && (
+            <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+              {/* Preview Header */}
+
+              <div className="border-b border-slate-800 px-5 py-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">
+                    Live Preview
+                  </h2>
+
+                  <p className="text-xs text-slate-500 mt-1">
+                    Generated application running in
+                    Docker
+                  </p>
+                </div>
+
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm transition"
+                >
+                  <ExternalLink size={16} />
+                  Open in New Tab
+                </a>
+              </div>
+
+              {/* Preview URL */}
+
+              <div className="px-5 py-3 border-b border-slate-800">
+                <span className="text-xs text-slate-500">
+                  Preview URL
+                </span>
+
+                <p className="text-sm text-emerald-400 mt-1 break-all">
+                  {previewUrl}
+                </p>
+              </div>
+
+              {/* Iframe */}
+
+              <div className="bg-white">
+                <iframe
+                  src={previewUrl}
+                  title="Generated Application Preview"
+                  className="w-full h-[700px] border-0"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* =========================================
+              Generated Project
+          ========================================= */}
+
+          <div className="mt-10">
+            <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-bold">
                 Generated Project
               </h2>
@@ -242,24 +447,26 @@ function ProjectDetails() {
                 No generated files yet.
               </p>
             ) : (
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* =====================================
+                    File Explorer
+                ===================================== */}
 
-                {/* File Explorer */}
                 <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-
                   <h3 className="font-semibold mb-4">
                     Files
                   </h3>
 
                   <div className="space-y-2">
-
                     {files.map((file) => (
                       <button
                         key={file.path}
-                        onClick={() => setSelectedFile(file)}
+                        onClick={() =>
+                          setSelectedFile(file)
+                        }
                         className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
-                          selectedFile?.path === file.path
+                          selectedFile?.path ===
+                          file.path
                             ? "bg-blue-600/20 text-blue-400"
                             : "text-slate-400 hover:bg-slate-800 hover:text-white"
                         }`}
@@ -272,17 +479,18 @@ function ProjectDetails() {
                         {file.path}
                       </button>
                     ))}
-
                   </div>
-
                 </div>
 
-                {/* Code Viewer */}
-                <div className="md:col-span-2 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+                {/* =====================================
+                    Code Viewer
+                ===================================== */}
 
+                <div className="md:col-span-2 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
                   <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
                     <span className="text-sm text-slate-400">
-                      {selectedFile?.path || "Select a file"}
+                      {selectedFile?.path ||
+                        "Select a file"}
                     </span>
 
                     <button
@@ -292,7 +500,10 @@ function ProjectDetails() {
                     >
                       {copied ? (
                         <>
-                          <Check size={16} className="text-green-400" />
+                          <Check
+                            size={16}
+                            className="text-green-400"
+                          />
                           Copied
                         </>
                       ) : (
@@ -305,20 +516,17 @@ function ProjectDetails() {
                   </div>
 
                   <pre className="p-5 overflow-auto max-h-[600px] text-sm text-slate-300 whitespace-pre-wrap break-words">
-                    <code>{selectedFile?.content || "No content"}</code>
+                    <code>
+                      {selectedFile?.content ||
+                        "No content"}
+                    </code>
                   </pre>
-
                 </div>
-
               </div>
             )}
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }

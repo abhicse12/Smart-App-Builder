@@ -1,7 +1,14 @@
 import Project from "../models/Project.js";
+
 import fs from "fs";
+import fsPromises from "fs/promises";
+
 import path from "path";
+
 import { ZipArchive } from "archiver";
+
+import runProjectInDocker from "../services/runnerService.js";
+
 
 export const createProject = async (req, res) => {
   try {
@@ -187,18 +194,111 @@ export const runProject = async (req, res) => {
       });
     }
 
+    console.log(
+      `Starting Runner Agent for project: ${id}`
+    );
+
+    const runnerResult =
+      await runProjectInDocker(id);
+
     return res.status(200).json({
       success: true,
-      message: "Project is ready to run",
+      message: "Project started successfully",
       projectId: project._id,
-      projectPath,
+      runner: runnerResult,
     });
   } catch (error) {
     console.error("Run Project Error:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to prepare project",
+      message: "Failed to run project",
+      error: error.message,
+    });
+  }
+};
+
+export const deleteProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID is required",
+      });
+    }
+
+    // Find project
+    const project = await Project.findById(id);
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found",
+      });
+    }
+
+    // =====================================
+    // Delete generated project from disk
+    // =====================================
+
+    const generatedProjectsRoot = path.resolve(
+      process.cwd(),
+      "generated-projects"
+    );
+
+    const projectRoot = path.resolve(
+      generatedProjectsRoot,
+      id.toString()
+    );
+
+    // Security check
+    if (
+      projectRoot === generatedProjectsRoot ||
+      !projectRoot.startsWith(
+        generatedProjectsRoot + path.sep
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid project path",
+      });
+    }
+
+    try {
+      await fsPromises.rm(projectRoot, {
+        recursive: true,
+        force: true,
+      });
+    } catch (fileError) {
+      console.error(
+        "Generated project deletion error:",
+        fileError
+      );
+    }
+
+    // =====================================
+    // Delete project from MongoDB
+    // =====================================
+
+    await Project.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Project deleted successfully",
+      projectId: id,
+    });
+
+  } catch (error) {
+    console.error(
+      "Delete Project Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete project",
       error: error.message,
     });
   }

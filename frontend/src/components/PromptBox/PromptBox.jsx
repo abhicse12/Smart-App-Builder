@@ -1,8 +1,9 @@
-import { WandSparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { WandSparkles } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 function PromptBox({ setIsGenerating, setAgentStep }) {
   const { id } = useParams();
@@ -12,7 +13,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      alert("Please describe the application you want to build.");
+      alert("Please describe the application requirements.");
       return;
     }
 
@@ -25,7 +26,9 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       setLoading(true);
       setIsGenerating(true);
 
+      // ==============================
       // Architect Agent
+      // ==============================
       setAgentStep(0);
 
       console.log("Starting application generation...");
@@ -39,12 +42,14 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
           },
           body: JSON.stringify({
             projectId: id,
-            prompt: prompt,
+            prompt: prompt.trim(),
           }),
         }
       );
 
+      // ==============================
       // Coder Agent
+      // ==============================
       setAgentStep(1);
 
       const data = await response.json();
@@ -57,26 +62,38 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
         );
       }
 
-      // Tester Agent
+      // ==============================
+      // Tester / Validator Agent
+      // ==============================
       setAgentStep(2);
 
       await new Promise((resolve) =>
         setTimeout(resolve, 1000)
       );
 
-      // Completed
+      // ==============================
+      // Generation Completed
+      // ==============================
       setAgentStep(3);
 
-      console.log("Application generation completed!");
+      console.log(
+        "Application generation completed!"
+      );
 
       setPrompt("");
 
-      alert("Application generated successfully!");
+      alert(
+        "Application generated successfully!"
+      );
 
-      // Refresh project page to show new data
+      // Refresh Project Details page
+      // so generated files and project data are visible
       window.location.reload();
     } catch (error) {
-      console.error("Generation Error:", error);
+      console.error(
+        "Generation Error:",
+        error
+      );
 
       alert(
         error.message ||
@@ -91,42 +108,71 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
   };
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <WandSparkles
-          className="text-blue-500"
-          size={22}
-        />
+    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
+      
+      {/* Header */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+          <WandSparkles
+            className="text-blue-500"
+            size={22}
+          />
+        </div>
 
-        <h2 className="text-xl font-semibold text-white">
-          AI Prompt Studio
-        </h2>
+        <div>
+          <h2 className="text-xl font-semibold text-white">
+            Application Requirements
+          </h2>
+
+          <p className="text-sm text-slate-500">
+            Describe what you want your application to do.
+          </p>
+        </div>
       </div>
 
-      <p className="text-slate-400 mb-4">
-        Describe the application you want to build. Our AI
-        agents will analyze your prompt, generate code, test
-        it, and prepare your project automatically.
+      {/* Description */}
+      <p className="mb-4 text-sm leading-6 text-slate-400">
+        Explain the application's features, users,
+        pages, functionality, authentication,
+        database requirements, and any other
+        important details. Our AI agents will use
+        these requirements to design and generate
+        your application.
       </p>
 
+      {/* Requirements Input */}
       <Textarea
-        rows={8}
+        rows={10}
         value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder={`Example:
-Create a MERN Stack E-commerce website with JWT authentication...`}
-        className="bg-slate-950 border-slate-700 text-white resize-none"
+        onChange={(e) =>
+          setPrompt(e.target.value)
+        }
         disabled={loading}
+        placeholder={`Example:
+
+Create a patient management application for a healthcare company.
+
+Requirements:
+- Admin can add, update and delete patients
+- Admin can add and manage nurses
+- Store patient and nurse information in MongoDB
+- Calculate billing based on number of days
+- Include authentication
+- Provide a dashboard with patient, nurse and billing statistics
+- Use React, Node.js, Express and MongoDB
+- Create a clean and responsive UI`}
+        className="resize-none border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
       />
 
-      <div className="flex justify-end mt-5">
+      {/* Generate Button */}
+      <div className="mt-5 flex justify-end">
         <Button
           className="px-8"
           onClick={handleGenerate}
           disabled={loading}
         >
           {loading
-            ? "⚙️ Generating..."
+            ? "⚙️ Generating Application..."
             : "✨ Generate Application"}
         </Button>
       </div>

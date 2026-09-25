@@ -6,16 +6,29 @@ import fixProject from "./fixerService.js";
 const BATCH_SIZE = 4;
 const MAX_FIX_ATTEMPTS = 3;
 
-const generateApp = async (prompt) => {
+const generateApp = async (prompt, techStack = []) => {
   // ==========================================
   // 1. ARCHITECT AGENT
   // ==========================================
 
-  const architecture = await createProjectArchitecture(prompt);
+  const architecture = await createProjectArchitecture(
+    prompt,
+    techStack
+  );
 
   console.log(
     "Architecture created:",
     architecture.projectName
+  );
+
+  console.log(
+    "Selected Tech Stack:",
+    techStack
+  );
+
+  console.log(
+    "Architecture Tech Stack:",
+    architecture.techStack
   );
 
   console.log(
@@ -42,7 +55,9 @@ const generateApp = async (prompt) => {
     const batchNumber =
       Math.floor(i / BATCH_SIZE) + 1;
 
-    console.log(`\nGenerating Batch ${batchNumber}`);
+    console.log(
+      `\nGenerating Batch ${batchNumber}`
+    );
 
     console.log(
       "Requested files:",

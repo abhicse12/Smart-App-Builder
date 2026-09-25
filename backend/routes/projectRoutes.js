@@ -7,6 +7,7 @@ import {
   getProjectFiles,
   downloadProject,
   runProject,
+  deleteProject,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
@@ -14,6 +15,8 @@ const router = express.Router();
 router.post("/", createProject);
 
 router.get("/", getProjects);
+
+router.delete("/:id", deleteProject);
 
 router.get("/:id/files", getProjectFiles);
 

@@ -8,6 +8,7 @@ import {
   downloadProject,
   runProject,
   deleteProject,
+  modifyProject,
 } from "../controllers/projectController.js";
 
 const router = express.Router();
@@ -23,6 +24,8 @@ router.get("/:id/files", getProjectFiles);
 router.get("/:id/download", downloadProject);
 
 router.post("/:id/run", runProject);
+
+router.post("/:id/modify", modifyProject);
 
 router.get("/:id", getProjectById);
 

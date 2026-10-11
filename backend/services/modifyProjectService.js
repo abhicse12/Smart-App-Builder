@@ -192,6 +192,60 @@ You should ONLY add the navbar and the minimum CSS required
 for the navbar.
 
 ==================================================
+DEPENDENCY AND CONFIGURATION PROTECTION
+==================================================
+
+IMPORTANT:
+
+DO NOT MODIFY dependency or configuration files unless the
+user explicitly asks for a dependency or configuration change.
+
+Protected files include:
+
+- package.json
+- package-lock.json
+- npm-shrinkwrap.json
+- yarn.lock
+- pnpm-lock.yaml
+- vite.config.js
+- vite.config.ts
+- tsconfig.json
+- eslint.config.js
+- .eslintrc
+- tailwind.config.js
+- postcss.config.js
+- Dockerfile
+- docker-compose.yml
+- .env
+
+For normal UI or feature requests such as:
+
+- "Add a Login button"
+- "Change the navbar"
+- "Add a footer"
+- "Change the color"
+- "Add a form"
+
+DO NOT modify package.json or any dependency/configuration file.
+
+If the requested change does not require a dependency change,
+DO NOT return package.json.
+
+Preserve the existing dependency versions exactly.
+
+For example:
+
+If existing package.json contains:
+
+"eslint-plugin-react-refresh": "^0.4.24"
+
+you MUST preserve:
+
+"eslint-plugin-react-refresh": "^0.4.24"
+
+Never change it to another version.
+
+==================================================
 TECHNOLOGY RULES
 ==================================================
 

@@ -5,6 +5,10 @@ import fs from "fs";
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+// =====================================
+// Docker command
+// =====================================
+
 const runCommand = (command, args) => {
   return new Promise((resolve, reject) => {
     execFile(
@@ -35,7 +39,6 @@ const runCommand = (command, args) => {
   });
 };
 
-
 // =====================================
 // Docker host port
 // =====================================
@@ -60,7 +63,6 @@ const getDockerHostPort = async (
 
   return Number(match[1]);
 };
-
 
 // =====================================
 // Host health check
@@ -106,6 +108,28 @@ const waitForHealth = async (
   );
 };
 
+// =====================================
+// Get Docker container IP
+// =====================================
+
+const getDockerContainerIP = async (containerName) => {
+  const result = await runCommand("docker", [
+    "inspect",
+    "-f",
+    "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+    containerName,
+  ]);
+
+  const containerIP = result.stdout.trim();
+
+  if (!containerIP) {
+    throw new Error(
+      `Could not determine container IP for ${containerName}`
+    );
+  }
+
+  return containerIP;
+};
 
 // =====================================
 // Container health check
@@ -115,7 +139,7 @@ const waitForContainerHealth = async (
   containerName,
   containerPort,
   serviceName,
-  attempts = 15
+  attempts = 60
 ) => {
   let lastError = null;
 
@@ -129,6 +153,18 @@ const waitForContainerHealth = async (
         `${serviceName} health check ${attempt}/${attempts}`
       );
 
+      const containerIP =
+        await getDockerContainerIP(containerName);
+
+      
+      console.log(
+        `${serviceName} container IP: ${containerIP}`
+      );
+
+      console.log(
+        `${serviceName} health URL: [http://${containerIP}:${containerPort}]`
+      );
+
       await runCommand("docker", [
         "exec",
         containerName,
@@ -136,7 +172,7 @@ const waitForContainerHealth = async (
         "-q",
         "-O",
         "/dev/null",
-        `http://127.0.0.1:${containerPort}`,
+        `http://${containerIP}:${containerPort}`,
       ]);
 
       console.log(
@@ -146,6 +182,10 @@ const waitForContainerHealth = async (
       return true;
     } catch (error) {
       lastError = error.message;
+
+      console.log(
+        `❌ ${serviceName} health check failed: ${lastError}`
+      );
     }
 
     await sleep(2000);
@@ -155,7 +195,6 @@ const waitForContainerHealth = async (
     `${serviceName} health check failed: ${lastError}`
   );
 };
-
 
 // =====================================
 // Detect project type
@@ -174,12 +213,70 @@ const detectProjectType = (projectRoot) => {
     path.join(projectRoot, "index.html")
   );
 
-  // MERN / full-stack project
+  const frontendPackagePath = path.join(
+    projectRoot,
+    "frontend",
+    "package.json"
+  );
+
+  const viteConfigPath = path.join(
+    projectRoot,
+    "frontend",
+    "vite.config.js"
+  );
+
+  const mainJsxPath = path.join(
+    projectRoot,
+    "frontend",
+    "src",
+    "main.jsx"
+  );
+
+  let isReactVite = false;
+
+  // Detect React + Vite
+  if (
+    hasFrontend &&
+    fs.existsSync(frontendPackagePath) &&
+    fs.existsSync(viteConfigPath) &&
+    fs.existsSync(mainJsxPath)
+  ) {
+    try {
+      const frontendPackage = JSON.parse(
+        fs.readFileSync(
+          frontendPackagePath,
+          "utf-8"
+        )
+      );
+
+      const dependencies = {
+        ...(frontendPackage.dependencies || {}),
+        ...(frontendPackage.devDependencies || {}),
+      };
+
+      isReactVite =
+        Boolean(dependencies.react) &&
+        Boolean(dependencies["react-dom"]) &&
+        Boolean(dependencies.vite);
+    } catch (error) {
+      console.log(
+        "Could not read frontend/package.json:",
+        error.message
+      );
+    }
+  }
+
+  // Full-stack
   if (hasBackend && hasFrontend) {
     return "fullstack";
   }
 
-  // Simple HTML/CSS/JS project
+  // React + Vite
+  if (isReactVite) {
+    return "react";
+  }
+
+  // Static HTML/CSS/JS
   if (hasIndexHtml) {
     return "static";
   }
@@ -187,6 +284,38 @@ const detectProjectType = (projectRoot) => {
   return "unknown";
 };
 
+// =====================================
+// Stop Project
+// =====================================
+
+const stopProject = async (projectId) => {
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  const containerName =
+    `ai-builder-${projectId}`;
+
+  console.log(
+    `Stopping Docker container: ${containerName}`
+  );
+
+  try {
+    await runCommand("docker", [
+      "rm",
+      "-f",
+      containerName,
+    ]);
+
+    console.log(
+      `Docker container stopped: ${containerName}`
+    );
+  } catch (error) {
+    console.log(
+      `Container ${containerName} was not running or already stopped.`
+    );
+  }
+};
 
 // =====================================
 // Run Project
@@ -208,7 +337,6 @@ const runProject = async (projectId) => {
     "generated-projects"
   );
 
-
   // =====================================
   // Security
   // =====================================
@@ -222,16 +350,14 @@ const runProject = async (projectId) => {
     throw new Error("Invalid project path");
   }
 
-
   if (!fs.existsSync(projectRoot)) {
     throw new Error(
       `Generated project not found: ${projectRoot}`
     );
   }
 
-
   // =====================================
-  // Detect project
+  // Detect project type
   // =====================================
 
   const projectType =
@@ -241,22 +367,14 @@ const runProject = async (projectId) => {
     `Detected project type: ${projectType}`
   );
 
-
   if (projectType === "unknown") {
     throw new Error(
       "Unsupported project structure. Could not detect a runnable project."
     );
   }
 
-
   const containerName =
     `ai-builder-${projectId}`;
-
-
-  console.log(
-    `Starting Docker container: ${containerName}`
-  );
-
 
   // =====================================
   // Remove old container
@@ -272,25 +390,22 @@ const runProject = async (projectId) => {
     // Container does not exist
   }
 
-
   // =====================================
-  // STATIC HTML/CSS/JS PROJECT
+  // STATIC PROJECT
   // =====================================
 
   if (projectType === "static") {
-
     console.log(
       "Starting static HTML/CSS/JS project..."
     );
 
-
     await runCommand("docker", [
       "run",
       "-d",
+
       "--name",
       containerName,
 
-      // Resource limits
       "--memory",
       "256m",
 
@@ -300,46 +415,31 @@ const runProject = async (projectId) => {
       "--pids-limit",
       "100",
 
-      // Security
       "--security-opt",
       "no-new-privileges",
 
-      // Serve project directly from Nginx document root
       "-v",
       `${projectRoot}:/usr/share/nginx/html:ro`,
 
-      // Nginx listens on port 80
       "-p",
       "127.0.0.1::80",
 
       "nginx:alpine",
     ]);
 
-
     console.log(
       "Static Docker container started."
     );
 
-
-    // =====================================
-    // Get frontend host port
-    // =====================================
-
     const frontendHostPort =
-    await getDockerHostPort(
-      containerName,
-      80
-    );
-
+      await getDockerHostPort(
+        containerName,
+        80
+      );
 
     console.log(
       `Static project mapped to host port: ${frontendHostPort}`
     );
-
-
-    // =====================================
-    // Frontend health check
-    // =====================================
 
     await waitForContainerHealth(
       containerName,
@@ -347,35 +447,22 @@ const runProject = async (projectId) => {
       "Static Frontend"
     );
 
-
-    // =====================================
-    // Preview URL
-    // =====================================
-
     const frontendPreviewUrl =
       `http://127.0.0.1:${frontendHostPort}`;
-
 
     console.log(
       "✅ Static application is fully running!"
     );
 
-
     return {
       success: true,
-
       projectId,
-
       containerName,
-
       projectType: "static",
 
       frontend: {
         hostPort: frontendHostPort,
-
-        previewUrl:
-          frontendPreviewUrl,
-
+        previewUrl: frontendPreviewUrl,
         status: "running",
       },
 
@@ -383,25 +470,22 @@ const runProject = async (projectId) => {
     };
   }
 
-
   // =====================================
-  // FULL STACK PROJECT
+  // REACT + VITE PROJECT
   // =====================================
 
-  if (projectType === "fullstack") {
-
+  if (projectType === "react") {
     console.log(
-      "Starting full-stack project..."
+      "Starting React + Vite project..."
     );
-
 
     await runCommand("docker", [
       "run",
       "-d",
+
       "--name",
       containerName,
 
-      // Resource limits
       "--memory",
       "512m",
 
@@ -411,19 +495,12 @@ const runProject = async (projectId) => {
       "--pids-limit",
       "100",
 
-      // Security
       "--security-opt",
       "no-new-privileges",
 
-      // Project mount
       "-v",
       `${projectRoot}:/app`,
 
-      // Backend
-      "-p",
-      "127.0.0.1::5001",
-
-      // Frontend
       "-p",
       "127.0.0.1::5173",
 
@@ -432,28 +509,15 @@ const runProject = async (projectId) => {
       "sh",
       "-c",
 
-      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
+      "cd /app/frontend && rm -rf node_modules package-lock.json && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
     ]);
 
-
     console.log(
-      "Full-stack Docker container started."
+      "React Docker container started."
     );
 
-
     // =====================================
-    // Backend
-    // =====================================
-
-    const backendHostPort =
-      await getDockerHostPort(
-        containerName,
-        5001
-      );
-
-
-    // =====================================
-    // Frontend
+    // Get dynamically assigned host port
     // =====================================
 
     const frontendHostPort =
@@ -462,29 +526,145 @@ const runProject = async (projectId) => {
         5173
       );
 
+    console.log(
+      `React frontend mapped to host port: ${frontendHostPort}`
+    );
+
+    // =====================================
+    // Container health check
+    //
+    // Vite runs inside the container on
+    // 0.0.0.0:5173.
+    // =====================================
+
+    await waitForContainerHealth(
+      containerName,
+      5173,
+      "React Frontend"
+    );
+
+    const frontendPreviewUrl =
+      `http://127.0.0.1:${frontendHostPort}`;
 
     console.log(
-      `Generated backend mapped to host port: ${backendHostPort}`
+      "✅ React application is fully running!"
+    );
+
+    return {
+      success: true,
+
+      projectId,
+
+      containerName,
+
+      projectType: "react",
+
+      frontend: {
+        hostPort: frontendHostPort,
+        previewUrl: frontendPreviewUrl,
+        status: "running",
+      },
+
+      status: "running",
+    };
+  }
+
+  // =====================================
+  // FULL STACK PROJECT
+  // =====================================
+
+  if (projectType === "fullstack") {
+    console.log(
+      "Starting full-stack project..."
+    );
+
+    // =====================================
+    // Backend port
+    // =====================================
+
+    const backendPort = 5001;
+
+    // =====================================
+    // Frontend port
+    // =====================================
+
+    const frontendPort = 5173;
+
+    await runCommand("docker", [
+      "run",
+      "-d",
+
+      "--name",
+      containerName,
+
+      "--memory",
+      "768m",
+
+      "--cpus",
+      "1",
+
+      "--pids-limit",
+      "150",
+
+      "--security-opt",
+      "no-new-privileges",
+
+      "-v",
+      `${projectRoot}:/app`,
+
+      "-p",
+      `127.0.0.1::${backendPort}`,
+
+      "-p",
+      `127.0.0.1::${frontendPort}`,
+
+      "node:22",
+
+      "sh",
+      "-c",
+
+      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
+    ]);
+
+    console.log(
+      "Full-stack Docker container started."
+    );
+
+    // =====================================
+    // Get host ports
+    // =====================================
+
+    const backendHostPort =
+      await getDockerHostPort(
+        containerName,
+        backendPort
+      );
+
+    const frontendHostPort =
+      await getDockerHostPort(
+        containerName,
+        frontendPort
+      );
+
+    console.log(
+      `Backend mapped to host port: ${backendHostPort}`
     );
 
     console.log(
-      `Generated frontend mapped to host port: ${frontendHostPort}`
+      `Frontend mapped to host port: ${frontendHostPort}`
     );
-
 
     // =====================================
     // Backend health
     // =====================================
 
-    const backendHealthUrl =
+    const backendUrl =
       `http://127.0.0.1:${backendHostPort}/health`;
 
-
     await waitForHealth(
-      backendHealthUrl,
-      "Backend"
+      backendUrl,
+      "Node Backend"
     );
-
 
     // =====================================
     // Frontend health
@@ -492,23 +672,19 @@ const runProject = async (projectId) => {
 
     await waitForContainerHealth(
       containerName,
-      5173,
-      "Frontend"
+      frontendPort,
+      "React Frontend"
     );
-
-
-    // =====================================
-    // Preview
-    // =====================================
 
     const frontendPreviewUrl =
       `http://127.0.0.1:${frontendHostPort}`;
 
+    const backendBaseUrl =
+      `http://127.0.0.1:${backendHostPort}`;
 
     console.log(
-      "✅ Generated application is fully running!"
+      "✅ Full-stack application is fully running!"
     );
-
 
     return {
       success: true,
@@ -519,28 +695,37 @@ const runProject = async (projectId) => {
 
       projectType: "fullstack",
 
-      backend: {
-        hostPort: backendHostPort,
-
-        healthUrl:
-          backendHealthUrl,
-
+      frontend: {
+        hostPort: frontendHostPort,
+        previewUrl: frontendPreviewUrl,
         status: "running",
       },
 
-      frontend: {
-        hostPort: frontendHostPort,
-
-        previewUrl:
-          frontendPreviewUrl,
-
+      backend: {
+        hostPort: backendHostPort,
+        baseUrl: backendBaseUrl,
         status: "running",
       },
 
       status: "running",
     };
   }
+
+  // =====================================
+  // Unsupported project type
+  // =====================================
+
+  throw new Error(
+    `Unsupported project type: ${projectType}`
+  );
 };
 
+// =====================================
+// Exports
+// =====================================
+
+export {
+  stopProject,
+};
 
 export default runProject;

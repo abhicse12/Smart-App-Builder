@@ -1,4 +1,5 @@
 import generateWithAI from "./aiService.js";
+import retrieveRelevantKnowledge from "./retrievalService.js";
 
 const generateBatchCode = async ({
   projectName,
@@ -7,6 +8,51 @@ const generateBatchCode = async ({
   files,
   allFiles,
 }) => {
+    const retrievalQuery = `
+  Project Name:
+  ${projectName}
+
+  Project Description:
+  ${description}
+
+  Technology Stack:
+  ${techStack.join(", ")}
+
+  Requested Files:
+  ${files.map((file) => `${file.path} - ${file.purpose}`).join("\n")}
+  `;
+
+    console.log("\n🔎 Coder Agent retrieving relevant knowledge...");
+
+    const relevantKnowledge = await retrieveRelevantKnowledge(
+      retrievalQuery,
+      techStack,
+      3
+    );
+
+    console.log(
+      "Coder Retrieved Knowledge:",
+      relevantKnowledge.map((item) => ({
+        source: item.source,
+        score: item.score,
+      }))
+    );
+
+    const knowledgeContext =
+      relevantKnowledge.length > 0
+        ? relevantKnowledge
+            .map(
+              (item, index) => `
+  --- Knowledge ${index + 1} ---
+
+  Source: ${item.source}
+  Relevance Score: ${item.score}
+
+  ${item.content}
+  `
+            )
+            .join("\n")
+        : "No relevant knowledge was retrieved.";
   const batchPrompt = `
 You are the Coder Agent of an AI application builder.
 
@@ -21,6 +67,22 @@ ${description}
 Technology Stack:
 
 ${techStack.join(", ")}
+
+==================================================
+RETRIEVED KNOWLEDGE FROM RAG
+==================================================
+
+Use the following retrieved knowledge as implementation guidance.
+
+${knowledgeContext}
+
+RAG RULES:
+
+1. Use retrieved knowledge when it is relevant.
+2. The selected technology stack has higher priority than RAG.
+3. Do NOT introduce technologies that are not selected.
+4. Follow the Architect Agent's file structure exactly.
+5. Retrieved knowledge is guidance, not a replacement for the architecture blueprint.
 
 Generate complete source code ONLY for the requested files.
 
@@ -45,30 +107,21 @@ COMPLETE PROJECT STRUCTURE
 ${allFiles.map((file) => `- ${file.path}`).join("\n")}
 
 ==================================================
-STRICT RULES
+BATCH OUTPUT RULES
 ==================================================
 
-1. Generate EVERY requested file.
+The requested files are the ONLY files you are allowed to generate.
 
-2. Do NOT generate files outside the requested batch.
+ABSOLUTE RULES:
 
-3. Do NOT omit any requested file.
-
-4. Every import must refer to an existing file in the complete project structure.
-
-5. Every dependency used in code MUST exist in the appropriate package.json.
-
-6. Routes and controllers MUST match exactly.
-
-7. If a route imports a controller function, that exact function MUST be exported by the controller.
-
-8. If a controller imports a model, that exact model MUST exist.
-
-9. Do NOT invent function names that are not defined/exported.
-
-10. Do NOT change the application's business logic.
-
-11. Follow the architecture blueprint exactly.
+1. Return ONLY files whose paths appear in the REQUESTED FILES section.
+2. NEVER return a file from the COMPLETE PROJECT STRUCTURE unless it is also listed in REQUESTED FILES.
+3. If a file exists in the complete project structure but is NOT in REQUESTED FILES, DO NOT generate it.
+4. Do NOT generate extra files.
+5. Do NOT generate .gitignore, README.md, package.json, configuration files, or any other file unless that exact file is listed in REQUESTED FILES.
+6. The number of objects in the "files" array MUST be exactly equal to the number of REQUESTED FILES.
+7. The paths in the "files" array MUST exactly match the requested paths.
+8. Before returning JSON, compare your generated file paths against REQUESTED FILES and remove every extra file.
 
 ==================================================
 BILLING RULES

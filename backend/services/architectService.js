@@ -31,6 +31,7 @@ ${selectedTechStack}
   const relevantKnowledge =
     await retrieveRelevantKnowledge(
       retrievalQuery,
+      techStack,
       3
     );
 

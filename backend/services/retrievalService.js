@@ -22,19 +22,82 @@ const cosineSimilarity = (vectorA, vectorB) => {
   );
 };
 
+const calculateStackRelevance = (source, techStack = []) => {
+  const normalizedStack = techStack.map((tech) =>
+    tech.toLowerCase()
+  );
+
+  const sourceName = source.toLowerCase();
+
+  // Static HTML/CSS/JS project
+  if (
+    normalizedStack.includes("html") &&
+    normalizedStack.includes("css") &&
+    normalizedStack.includes("javascript") &&
+    !normalizedStack.includes("react") &&
+    !normalizedStack.includes("next.js")
+  ) {
+    if (sourceName === "static-web.md") {
+      return 1.0;
+    }
+
+    if (sourceName === "docker.md") {
+      return 0.7;
+    }
+
+    if (sourceName === "react-vite.md") {
+      return 0.2;
+    }
+  }
+
+  // React project
+  if (normalizedStack.includes("react")) {
+    if (sourceName === "react-vite.md") {
+      return 1.0;
+    }
+
+    if (sourceName === "docker.md") {
+      return 0.7;
+    }
+  }
+
+  // MERN / Node backend project
+  if (
+    normalizedStack.includes("node.js") ||
+    normalizedStack.includes("express") ||
+    normalizedStack.includes("mongodb")
+  ) {
+    if (sourceName === "mern.md") {
+      return 1.0;
+    }
+
+    if (sourceName === "authentication.md") {
+      return 0.8;
+    }
+
+    if (sourceName === "docker.md") {
+      return 0.7;
+    }
+  }
+
+  // Default
+  return 0.5;
+};
+
 const retrieveRelevantKnowledge = async (
   query,
+  techStack = [],
   topK = 3
 ) => {
   if (!query || !query.trim()) {
     throw new Error("Query is required for retrieval");
   }
 
-  // 1. Convert user query into embedding
+  // 1. Convert query into embedding
   const queryEmbedding =
     await generateQueryEmbedding(query);
 
-  // 2. Get all knowledge chunks from MongoDB
+  // 2. Get knowledge chunks
   const knowledgeChunks =
     await KnowledgeChunk.find({}).lean();
 
@@ -42,24 +105,50 @@ const retrieveRelevantKnowledge = async (
     return [];
   }
 
-  // 3. Calculate similarity with every stored chunk
+  // 3. Calculate semantic + technology relevance
   const rankedChunks = knowledgeChunks
-    .map((chunk) => ({
-      ...chunk,
-      score: cosineSimilarity(
+    .map((chunk) => {
+      const semanticScore = cosineSimilarity(
         queryEmbedding,
         chunk.embedding
-      ),
-    }))
+      );
+
+      const stackScore = calculateStackRelevance(
+        chunk.source,
+        techStack
+      );
+
+      // 70% semantic similarity
+      // 30% technology relevance
+      const finalScore =
+        semanticScore * 0.7 +
+        stackScore * 0.3;
+
+      return {
+        ...chunk,
+        semanticScore,
+        stackScore,
+        score: finalScore,
+      };
+    })
     .sort((a, b) => b.score - a.score);
 
-  // 4. Return top relevant chunks
-  return rankedChunks
+  // 4. Minimum relevance threshold
+  const MIN_RELEVANCE_SCORE = 0.60;
+
+  const relevantChunks = rankedChunks.filter(
+    (chunk) => chunk.score >= MIN_RELEVANCE_SCORE
+  );
+
+  // 5. Return top relevant knowledge
+  return relevantChunks
     .slice(0, topK)
     .map((chunk) => ({
       source: chunk.source,
       content: chunk.content,
       score: chunk.score,
+      semanticScore: chunk.semanticScore,
+      stackScore: chunk.stackScore,
     }));
 };
 

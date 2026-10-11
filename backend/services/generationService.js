@@ -2,19 +2,61 @@ import createProjectArchitecture from "./architectService.js";
 import generateBatchCode from "./batchCoderService.js";
 import validateProject from "./validatorService.js";
 import fixProject from "./fixerService.js";
+import runProject from "./runnerService.js";
+import generateProjectFiles from "./fileGenerationService.js";
 
 const BATCH_SIZE = 4;
+
 const MAX_FIX_ATTEMPTS = 3;
 
-const generateApp = async (prompt, techStack = []) => {
-  // ==========================================
-  // 1. ARCHITECT AGENT
-  // ==========================================
+const MAX_RUNTIME_FIX_ATTEMPTS = 3;
 
-  const architecture = await createProjectArchitecture(
-    prompt,
-    techStack
+/* =========================================================
+   MERGE FIXED FILES
+========================================================= */
+
+const mergeFixedFiles = (
+  generatedProject,
+  fixedFiles
+) => {
+  const fileMap = new Map(
+    generatedProject.files.map(
+      (file) => [file.path, file]
+    )
   );
+
+  for (const fixedFile of fixedFiles) {
+    fileMap.set(
+      fixedFile.path,
+      fixedFile
+    );
+  }
+
+  generatedProject.files =
+    Array.from(fileMap.values());
+
+  return generatedProject;
+};
+
+/* =========================================================
+   GENERATE APPLICATION
+========================================================= */
+
+const generateApp = async (
+  prompt,
+  techStack = [],
+  projectId = null
+) => {
+
+  /* =======================================================
+     1. ARCHITECT AGENT
+  ======================================================= */
+
+  const architecture =
+    await createProjectArchitecture(
+      prompt,
+      techStack
+    );
 
   console.log(
     "Architecture created:",
@@ -38,19 +80,21 @@ const generateApp = async (prompt, techStack = []) => {
 
   const generatedFiles = [];
 
-  // ==========================================
-  // 2. CODER AGENT - BATCH GENERATION
-  // ==========================================
+  /* =======================================================
+     2. CODER AGENT - BATCH GENERATION
+  ======================================================= */
 
   for (
     let i = 0;
     i < architecture.files.length;
     i += BATCH_SIZE
   ) {
-    const batch = architecture.files.slice(
-      i,
-      i + BATCH_SIZE
-    );
+
+    const batch =
+      architecture.files.slice(
+        i,
+        i + BATCH_SIZE
+      );
 
     const batchNumber =
       Math.floor(i / BATCH_SIZE) + 1;
@@ -61,17 +105,29 @@ const generateApp = async (prompt, techStack = []) => {
 
     console.log(
       "Requested files:",
-      batch.map((file) => file.path)
+      batch.map(
+        (file) => file.path
+      )
     );
 
     try {
-      const result = await generateBatchCode({
-        projectName: architecture.projectName,
-        description: architecture.description,
-        techStack: architecture.techStack,
-        files: batch,
-        allFiles: architecture.files,
-      });
+
+      const result =
+        await generateBatchCode({
+          projectName:
+            architecture.projectName,
+
+          description:
+            architecture.description,
+
+          techStack:
+            architecture.techStack,
+
+          files: batch,
+
+          allFiles:
+            architecture.files,
+        });
 
       if (
         !result ||
@@ -82,24 +138,30 @@ const generateApp = async (prompt, techStack = []) => {
         );
       }
 
-      const requestedPaths = batch.map(
-        (file) => file.path
-      );
+      const requestedPaths =
+        batch.map(
+          (file) => file.path
+        );
 
-      const generatedPaths = result.files.map(
-        (file) => file.path
-      );
+      const generatedPaths =
+        result.files.map(
+          (file) => file.path
+        );
 
       const missingFiles =
         requestedPaths.filter(
           (filePath) =>
-            !generatedPaths.includes(filePath)
+            !generatedPaths.includes(
+              filePath
+            )
         );
 
       const unexpectedFiles =
         generatedPaths.filter(
           (filePath) =>
-            !requestedPaths.includes(filePath)
+            !requestedPaths.includes(
+              filePath
+            )
         );
 
       if (missingFiles.length > 0) {
@@ -116,7 +178,9 @@ const generateApp = async (prompt, techStack = []) => {
         );
       }
 
-      generatedFiles.push(...result.files);
+      generatedFiles.push(
+        ...result.files
+      );
 
       console.log(
         `Batch ${batchNumber} completed`
@@ -125,7 +189,9 @@ const generateApp = async (prompt, techStack = []) => {
       console.log(
         `Total generated files: ${generatedFiles.length}`
       );
+
     } catch (error) {
+
       console.error(
         `Batch ${batchNumber} generation failed:`,
         error.message
@@ -135,32 +201,42 @@ const generateApp = async (prompt, techStack = []) => {
     }
   }
 
-  // ==========================================
-  // 3. CREATE PROJECT OBJECT
-  // ==========================================
+  /* =======================================================
+     3. CREATE GENERATED PROJECT
+  ======================================================= */
 
   let generatedProject = {
-    projectName: architecture.projectName,
-    description: architecture.description,
-    techStack: architecture.techStack,
-    files: generatedFiles,
+
+    projectName:
+      architecture.projectName,
+
+    description:
+      architecture.description,
+
+    techStack:
+      architecture.techStack,
+
+    files:
+      generatedFiles,
   };
 
-  // ==========================================
-  // 4. INITIAL VALIDATION
-  // ==========================================
+  /* =======================================================
+     4. INITIAL STATIC VALIDATION
+  ======================================================= */
 
   let validation =
-    validateProject(generatedProject);
+    validateProject(
+      generatedProject
+    );
 
   console.log(
     "\nInitial Validation Result:",
     validation
   );
 
-  // ==========================================
-  // 5. FIXER AGENT
-  // ==========================================
+  /* =======================================================
+     5. STATIC VALIDATION FIXER
+  ======================================================= */
 
   let fixAttempt = 0;
 
@@ -168,6 +244,7 @@ const generateApp = async (prompt, techStack = []) => {
     !validation.valid &&
     fixAttempt < MAX_FIX_ATTEMPTS
   ) {
+
     fixAttempt++;
 
     console.log(
@@ -180,26 +257,31 @@ const generateApp = async (prompt, techStack = []) => {
     );
 
     try {
-      const fixResult = await fixProject({
-        projectName:
-          generatedProject.projectName,
 
-        description:
-          generatedProject.description,
+      const fixResult =
+        await fixProject({
 
-        techStack:
-          generatedProject.techStack,
+          projectName:
+            generatedProject.projectName,
 
-        errors:
-          validation.errors,
+          description:
+            generatedProject.description,
 
-        files:
-          generatedProject.files,
-      });
+          techStack:
+            generatedProject.techStack,
+
+          errors:
+            validation.errors,
+
+          files:
+            generatedProject.files,
+        });
 
       if (
         !fixResult ||
-        !Array.isArray(fixResult.files)
+        !Array.isArray(
+          fixResult.files
+        )
       ) {
         throw new Error(
           "Invalid Fixer Agent response"
@@ -213,38 +295,24 @@ const generateApp = async (prompt, techStack = []) => {
         )
       );
 
-      // ========================================
-      // Replace corrected files
-      // ========================================
-
-      const fileMap = new Map(
-        generatedProject.files.map(
-          (file) => [file.path, file]
-        )
-      );
-
-      for (const fixedFile of fixResult.files) {
-        fileMap.set(
-          fixedFile.path,
-          fixedFile
+      generatedProject =
+        mergeFixedFiles(
+          generatedProject,
+          fixResult.files
         );
-      }
-
-      generatedProject.files =
-        Array.from(fileMap.values());
-
-      // ========================================
-      // Re-validate
-      // ========================================
 
       validation =
-        validateProject(generatedProject);
+        validateProject(
+          generatedProject
+        );
 
       console.log(
         `Validation after fix attempt ${fixAttempt}:`,
         validation
       );
+
     } catch (error) {
+
       console.error(
         "Fixer Agent failed:",
         error.message
@@ -254,15 +322,12 @@ const generateApp = async (prompt, techStack = []) => {
     }
   }
 
-  // ==========================================
-  // 6. FINAL RESULT
-  // ==========================================
+  /* =======================================================
+     6. STOP IF STATIC VALIDATION FAILED
+  ======================================================= */
 
-  if (validation.valid) {
-    console.log(
-      "\n✅ Project validation successful!"
-    );
-  } else {
+  if (!validation.valid) {
+
     console.warn(
       "\n❌ Project validation failed!"
     );
@@ -271,12 +336,349 @@ const generateApp = async (prompt, techStack = []) => {
       "Remaining errors:",
       validation.errors
     );
+
+    return {
+
+      ...generatedProject,
+
+      validation,
+
+      fixerAttempts:
+        fixAttempt,
+
+      runtimeValidation: {
+        attempted: false,
+
+        success: false,
+
+        skipped: true,
+
+        reason:
+          "Static validation failed",
+      },
+    };
   }
 
+  console.log(
+    "\n✅ Project validation successful!"
+  );
+
+  /* =======================================================
+     7. WRITE GENERATED FILES TO DISK
+  ======================================================= */
+
+  if (!projectId) {
+
+    throw new Error(
+      "Project ID is required before runtime validation"
+    );
+  }
+
+  console.log(
+    "\n📁 Writing generated files to disk..."
+  );
+
+  let projectFilesResult =
+    await generateProjectFiles(
+      projectId,
+      generatedProject.files
+    );
+
+  console.log(
+    "Project files written successfully."
+  );
+
+  console.log(
+    "Project root:",
+    projectFilesResult.projectRoot
+  );
+
+  /* =======================================================
+     8. DOCKER RUNTIME VALIDATION
+  ======================================================= */
+
+  let runtimeValidation = {
+
+    attempted: true,
+
+    success: false,
+
+    skipped: false,
+
+    attempts: 0,
+
+    result: null,
+
+    error: null,
+  };
+
+  let runtimeFixAttempt = 0;
+
+  let runtimeSuccess = false;
+
+  while (
+    !runtimeSuccess &&
+    runtimeFixAttempt <
+      MAX_RUNTIME_FIX_ATTEMPTS
+  ) {
+
+    runtimeFixAttempt++;
+
+    runtimeValidation.attempts =
+      runtimeFixAttempt;
+
+    console.log(
+      `\n🐳 Runtime Validation Attempt ${runtimeFixAttempt}/${MAX_RUNTIME_FIX_ATTEMPTS}`
+    );
+
+    try {
+
+      const runtimeResult =
+        await runProject(
+          projectId
+        );
+
+      if (
+        !runtimeResult ||
+        runtimeResult.success !== true
+      ) {
+
+        throw new Error(
+          "Docker runtime validation failed"
+        );
+      }
+
+      runtimeValidation.success =
+        true;
+
+      runtimeValidation.result =
+        runtimeResult;
+
+      runtimeValidation.error =
+        null;
+
+      runtimeSuccess = true;
+
+      console.log(
+        "\n✅ Runtime validation successful!"
+      );
+
+    } catch (error) {
+
+      console.error(
+        "\n❌ Runtime validation failed!"
+      );
+
+      console.error(
+        error.message
+      );
+
+      runtimeValidation.success =
+        false;
+
+      runtimeValidation.error =
+        error.message;
+
+      /* ===================================================
+         STOP IF MAX RUNTIME ATTEMPTS REACHED
+      =================================================== */
+
+      if (
+        runtimeFixAttempt >=
+        MAX_RUNTIME_FIX_ATTEMPTS
+      ) {
+
+        console.error(
+          "\n❌ Maximum runtime fixer attempts reached."
+        );
+
+        break;
+      }
+
+      /* ===================================================
+         9. RUNTIME ERROR → FIXER AGENT
+      =================================================== */
+
+      console.log(
+        `\n🔧 Runtime Fixer Agent Attempt ${runtimeFixAttempt}/${MAX_RUNTIME_FIX_ATTEMPTS}`
+      );
+
+      try {
+
+        const runtimeFixResult =
+          await fixProject({
+
+            projectName:
+              generatedProject.projectName,
+
+            description:
+              generatedProject.description,
+
+            techStack:
+              generatedProject.techStack,
+
+            errors: [
+              {
+                type:
+                  "RUNTIME_ERROR",
+
+                message:
+                  error.message,
+              },
+            ],
+
+            files:
+              generatedProject.files,
+          });
+
+        if (
+          !runtimeFixResult ||
+          !Array.isArray(
+            runtimeFixResult.files
+          )
+        ) {
+
+          throw new Error(
+            "Invalid Runtime Fixer Agent response"
+          );
+        }
+
+        console.log(
+          "Runtime Fixer modified files:",
+          runtimeFixResult.files.map(
+            (file) => file.path
+          )
+        );
+
+        /* ===============================================
+           MERGE FIXED FILES
+        =============================================== */
+
+        generatedProject =
+          mergeFixedFiles(
+            generatedProject,
+            runtimeFixResult.files
+          );
+
+        /* ===============================================
+           STATIC VALIDATION AFTER RUNTIME FIX
+        =============================================== */
+
+        validation =
+          validateProject(
+            generatedProject
+          );
+
+        console.log(
+          "Validation after runtime fix:",
+          validation
+        );
+
+        if (!validation.valid) {
+
+          console.warn(
+            "⚠️ Runtime Fixer introduced static validation errors."
+          );
+
+          console.warn(
+            validation.errors
+          );
+
+          /*
+           * We do not send this project directly
+           * to Docker.
+           */
+          continue;
+        }
+
+        /* ===============================================
+           WRITE FIXED FILES TO DISK
+        =============================================== */
+
+        console.log(
+          "\n📁 Writing runtime-fixed files to disk..."
+        );
+
+        projectFilesResult =
+          await generateProjectFiles(
+            projectId,
+            generatedProject.files
+          );
+
+        console.log(
+          "Runtime-fixed files written successfully."
+        );
+
+      } catch (fixError) {
+
+        console.error(
+          "Runtime Fixer Agent failed:",
+          fixError.message
+        );
+
+        runtimeValidation.error =
+          fixError.message;
+
+        break;
+      }
+    }
+  }
+
+  /* =======================================================
+     10. FINAL RESULT
+  ======================================================= */
+
+  if (runtimeValidation.success) {
+
+    console.log(
+      "\n🎉 APPLICATION VERIFIED SUCCESSFULLY!"
+    );
+
+    console.log(
+      "Static validation: PASS"
+    );
+
+    console.log(
+      "Docker runtime validation: PASS"
+    );
+
+  } else {
+
+    console.warn(
+      "\n⚠️ APPLICATION RUNTIME VALIDATION FAILED!"
+    );
+
+    console.warn(
+      "Runtime attempts:",
+      runtimeValidation.attempts
+    );
+
+    console.warn(
+      "Runtime error:",
+      runtimeValidation.error
+    );
+  }
+
+  /* =======================================================
+     11. RETURN RESULT
+  ======================================================= */
+
   return {
+
     ...generatedProject,
+
     validation,
-    fixerAttempts: fixAttempt,
+
+    fixerAttempts:
+      fixAttempt,
+
+    projectRoot:
+      projectFilesResult.projectRoot,
+
+    formattedFiles:
+      projectFilesResult.formattedFiles,
+
+    runtimeValidation,
   };
 };
 

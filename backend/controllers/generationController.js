@@ -1,10 +1,15 @@
 import generateApp from "../services/generationService.js";
-import Project from "../models/Project.js";
 import generateProjectFiles from "../services/fileGenerationService.js";
+import modifyProject from "../services/modifyProjectService.js";
+import Project from "../models/Project.js";
 
 export const generateProject = async (req, res) => {
   try {
-    const { projectId, prompt } = req.body;
+    const {
+      projectId,
+      prompt,
+      mode = "generate",
+    } = req.body;
 
     // ==========================================
     // 1. Validate request
@@ -30,34 +35,144 @@ export const generateProject = async (req, res) => {
       });
     }
 
-    // ==========================================
-    // 3. Get selected technology stack
-    // ==========================================
-
     const techStack = project.techStack || [];
 
-    console.log(
-      "Project:",
-      project.name
-    );
-
-    console.log(
-      "Selected Tech Stack:",
-      techStack
-    );
-
-    console.log(
-      "Application Requirements:",
-      prompt
-    );
+    console.log("\n=================================");
+    console.log("Project:", project.name);
+    console.log("Mode:", mode);
+    console.log("Tech Stack:", techStack);
+    console.log("User Request:", prompt);
+    console.log("=================================\n");
 
     // ==========================================
-    // 4. Generate Application
+    // 3. MODIFY EXISTING PROJECT
     // ==========================================
+
+    if (mode === "modify") {
+      console.log("✏️ Modifying existing project...");
+
+      const result = await modifyProject({
+        projectName: project.name,
+        description: project.description || "",
+        techStack,
+        files: project.files || [],
+        userRequest: prompt,
+      });
+
+      if (
+        !result ||
+        !Array.isArray(result.files)
+      ) {
+        return res.status(500).json({
+          success: false,
+          message: "Invalid modification response from AI",
+        });
+      }
+
+      console.log(
+        "Modified files:",
+        result.files.map((file) => file.path)
+      );
+
+      // ==========================================
+      // Merge modified files with existing files
+      // ==========================================
+
+      const fileMap = new Map(
+        (project.files || []).map((file) => [
+          file.path,
+          file,
+        ])
+      );
+
+      for (const modifiedFile of result.files) {
+        fileMap.set(
+          modifiedFile.path,
+          modifiedFile
+        );
+      }
+
+      const updatedFiles =
+        Array.from(fileMap.values());
+
+      // ==========================================
+      // Write modified files to disk
+      // ==========================================
+
+      console.log(
+        "📁 Writing modified files to disk..."
+      );
+
+      const projectFilesResult =
+        await generateProjectFiles(
+          projectId,
+          updatedFiles
+        );
+
+      console.log(
+        "✅ Modified files written to disk"
+      );
+
+      console.log(
+        "Project root:",
+        projectFilesResult.projectRoot
+      );
+
+      // ==========================================
+      // Save updated project
+      // ==========================================
+
+      project.files =
+        projectFilesResult.formattedFiles;
+
+      project.status = "modified";
+
+      await project.save();
+
+      console.log(
+        "✅ Existing project modified successfully"
+      );
+
+      // ==========================================
+      // Response
+      // ==========================================
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Project modified successfully",
+
+        projectId: project._id,
+
+        modifiedFiles:
+          result.files.map(
+            (file) => file.path
+          ),
+
+        projectPath:
+          projectFilesResult.projectRoot,
+
+        result: {
+          projectName: project.name,
+          description: project.description,
+          techStack: project.techStack,
+          files:
+            projectFilesResult.formattedFiles,
+        },
+      });
+    }
+
+    // ==========================================
+    // 4. NEW / NORMAL GENERATION
+    // ==========================================
+
+    console.log("🚀 Generating application...");
 
     const result = await generateApp(
       prompt,
-      techStack
+      techStack,
+      projectId
     );
 
     // ==========================================
@@ -72,27 +187,21 @@ export const generateProject = async (req, res) => {
         success: false,
         message:
           "Generated project validation failed",
-        validation: result.validation,
+
+        validation:
+          result.validation,
+
+        runtimeValidation:
+          result.runtimeValidation,
       });
     }
 
     // ==========================================
-    // 6. Generate and format actual project files
+    // 6. Save generated project
     // ==========================================
 
-    const {
-      projectRoot,
-      formattedFiles,
-    } = await generateProjectFiles(
-      projectId,
-      result.files
-    );
-
-    // ==========================================
-    // 7. Save generated data into MongoDB
-    // ==========================================
-
-    project.name = result.projectName;
+    project.name =
+      result.projectName;
 
     project.description =
       result.description;
@@ -101,32 +210,45 @@ export const generateProject = async (req, res) => {
       result.techStack;
 
     project.files =
-      formattedFiles;
+      result.formattedFiles;
 
     // ==========================================
-    // 8. Update project status
+    // 7. Update project status
     // ==========================================
 
-    project.status = "generated";
+    if (
+      result.runtimeValidation &&
+      result.runtimeValidation.success
+    ) {
+      project.status = "verified";
+    } else {
+      project.status = "generated";
+    }
 
     await project.save();
 
     // ==========================================
-    // 9. Send response
+    // 8. Response
     // ==========================================
 
     return res.status(200).json({
       success: true,
 
       message:
-        "Application generated successfully",
+        result.runtimeValidation?.success
+          ? "Application generated and runtime verified successfully"
+          : "Application generated successfully, but runtime validation failed",
 
       projectId: project._id,
 
-      projectPath: projectRoot,
+      projectPath:
+        result.projectRoot,
 
       validation:
         result.validation,
+
+      runtimeValidation:
+        result.runtimeValidation,
 
       result: {
         projectName:
@@ -139,20 +261,24 @@ export const generateProject = async (req, res) => {
           result.techStack,
 
         files:
-          formattedFiles,
+          result.formattedFiles,
       },
     });
+
   } catch (error) {
     console.error(
-      "Generation Error:",
+      "Generation/Modification Error:",
       error
     );
 
     return res.status(500).json({
       success: false,
+
       message:
-        "Failed to generate application",
-      error: error.message,
+        "Failed to process application",
+
+      error:
+        error.message,
     });
   }
 };

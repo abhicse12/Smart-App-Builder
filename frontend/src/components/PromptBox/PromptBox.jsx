@@ -43,6 +43,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
           body: JSON.stringify({
             projectId: id,
             prompt: prompt.trim(),
+            mode: "generate"
           }),
         }
       );

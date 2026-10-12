@@ -5,7 +5,7 @@ import { WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
-function PromptBox({ setIsGenerating, setAgentStep }) {
+function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
   const { id } = useParams();
 
   const [prompt, setPrompt] = useState("");
@@ -27,8 +27,20 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       setIsGenerating(true);
 
       // ==============================
+      // Get JWT Token
+      // ==============================
+
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
+
+      // ==============================
       // Architect Agent
       // ==============================
+
       setAgentStep(0);
 
       console.log("Starting application generation...");
@@ -37,13 +49,16 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
         "http://localhost:5000/api/generate",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
+
           body: JSON.stringify({
             projectId: id,
             prompt: prompt.trim(),
-            mode: "generate"
+            mode: mode,
           }),
         }
       );
@@ -51,6 +66,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       // ==============================
       // Coder Agent
       // ==============================
+
       setAgentStep(1);
 
       const data = await response.json();
@@ -66,6 +82,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       // ==============================
       // Tester / Validator Agent
       // ==============================
+
       setAgentStep(2);
 
       await new Promise((resolve) =>
@@ -75,6 +92,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       // ==============================
       // Generation Completed
       // ==============================
+
       setAgentStep(3);
 
       console.log(
@@ -90,6 +108,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       // Refresh Project Details page
       // so generated files and project data are visible
       window.location.reload();
+
     } catch (error) {
       console.error(
         "Generation Error:",
@@ -102,6 +121,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       );
 
       setAgentStep(0);
+
     } finally {
       setLoading(false);
       setIsGenerating(false);
@@ -110,17 +130,22 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
 
   return (
     <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
-      
+
       {/* Header */}
+
       <div className="mb-4 flex items-center gap-3">
+
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+
           <WandSparkles
             className="text-blue-500"
             size={22}
           />
+
         </div>
 
         <div>
+
           <h2 className="text-xl font-semibold text-white">
             Application Requirements
           </h2>
@@ -128,10 +153,13 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
           <p className="text-sm text-slate-500">
             Describe what you want your application to do.
           </p>
+
         </div>
+
       </div>
 
       {/* Description */}
+
       <p className="mb-4 text-sm leading-6 text-slate-400">
         Explain the application's features, users,
         pages, functionality, authentication,
@@ -142,6 +170,7 @@ function PromptBox({ setIsGenerating, setAgentStep }) {
       </p>
 
       {/* Requirements Input */}
+
       <Textarea
         rows={10}
         value={prompt}
@@ -166,7 +195,9 @@ Requirements:
       />
 
       {/* Generate Button */}
+
       <div className="mt-5 flex justify-end">
+
         <Button
           className="px-8"
           onClick={handleGenerate}
@@ -176,7 +207,9 @@ Requirements:
             ? "⚙️ Generating Application..."
             : "✨ Generate Application"}
         </Button>
+
       </div>
+
     </div>
   );
 }

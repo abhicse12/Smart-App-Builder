@@ -41,8 +41,15 @@ function ProjectDetails() {
   useEffect(() => {
     const fetchProject = async () => {
       try {
+        const token = localStorage.getItem("token");
+
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}`
+          `http://localhost:5000/api/projects/${id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
         const data = await response.json();
@@ -68,8 +75,15 @@ function ProjectDetails() {
 
     const fetchProjectFiles = async () => {
       try {
+        const token = localStorage.getItem("token");
+
         const response = await fetch(
-          `http://localhost:5000/api/projects/${id}/files`
+          `http://localhost:5000/api/projects/${id}/files`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
         const data = await response.json();
@@ -109,12 +123,15 @@ function ProjectDetails() {
       setRunError("");
       setPreviewUrl("");
 
+      const token = localStorage.getItem("token");
+
       const response = await fetch(
         `http://localhost:5000/api/projects/${id}/run`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -182,12 +199,44 @@ function ProjectDetails() {
   // Download project
   // =========================================
 
-  const handleDownload = () => {
-    window.open(
+  const handleDownload = async () => {
+  try {
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(
       `http://localhost:5000/api/projects/${id}/download`,
-      "_blank"
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
-  };
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(
+        data.message || "Failed to download project"
+      );
+    }
+
+    const blob = await response.blob();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${project.name || "project"}.zip`;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Download Project Error:", error);
+    alert(error.message || "Failed to download project");
+  }
+};
 
   // =========================================
   // Loading project
@@ -304,6 +353,7 @@ function ProjectDetails() {
             <PromptBox
               setIsGenerating={setIsGenerating}
               setAgentStep={setAgentStep}
+              mode={files.length > 0 ? "modify" : "generate"}
             />
 
             <AgentStatus

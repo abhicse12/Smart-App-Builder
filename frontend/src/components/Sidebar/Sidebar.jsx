@@ -6,6 +6,7 @@ import {
   LogOut,
   Sparkles,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const menuItems = [
   {
@@ -27,6 +28,7 @@ const menuItems = [
 ];
 
 function Sidebar() {
+  const navigate = useNavigate();
   return (
     <aside className="w-64 h-screen bg-slate-900 border-r border-slate-800 flex flex-col justify-between">
       {/* Logo */}
@@ -62,7 +64,13 @@ function Sidebar() {
 
       {/* Footer */}
       <div className="p-4 border-t border-slate-800">
-        <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition">
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            navigate("/login");
+          }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition"
+        >
           <LogOut size={20} />
           Logout
         </button>

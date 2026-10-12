@@ -40,6 +40,31 @@ const runCommand = (command, args) => {
 };
 
 // =====================================
+// Docker Runtime Logs
+// =====================================
+
+const getDockerLogs = async (containerName, tail = 100) => {
+  try {
+    const result = await runCommand("docker", [
+      "logs",
+      "--tail",
+      String(tail),
+      containerName,
+    ]);
+
+    return {
+      success: true,
+      logs: result.stdout || result.stderr || "",
+    };
+  } catch (error) {
+    return {
+      success: false,
+      logs: error.message,
+    };
+  }
+};
+
+// =====================================
 // Docker host port
 // =====================================
 
@@ -112,24 +137,6 @@ const waitForHealth = async (
 // Get Docker container IP
 // =====================================
 
-const getDockerContainerIP = async (containerName) => {
-  const result = await runCommand("docker", [
-    "inspect",
-    "-f",
-    "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
-    containerName,
-  ]);
-
-  const containerIP = result.stdout.trim();
-
-  if (!containerIP) {
-    throw new Error(
-      `Could not determine container IP for ${containerName}`
-    );
-  }
-
-  return containerIP;
-};
 
 // =====================================
 // Container health check
@@ -153,17 +160,61 @@ const waitForContainerHealth = async (
         `${serviceName} health check ${attempt}/${attempts}`
       );
 
-      const containerIP =
-        await getDockerContainerIP(containerName);
+      const healthUrl =
+  `http://127.0.0.1:${containerPort}`;
 
-      
-      console.log(
-        `${serviceName} container IP: ${containerIP}`
-      );
 
       console.log(
-        `${serviceName} health URL: [http://${containerIP}:${containerPort}]`
+        `${serviceName} health URL: [${healthUrl}]`
       );
+
+      // =====================================
+      // Check Docker Container Logs
+      // =====================================
+
+      const dockerLogs =
+        await getDockerLogs(containerName);
+
+      const logs = dockerLogs.logs || "";
+
+      // Detect common Vite / React runtime errors
+      const runtimeErrorPatterns = [
+        "Failed to resolve import",
+        "Cannot find module",
+        "Module not found",
+        "SyntaxError",
+        "ReferenceError",
+        "TypeError",
+        "does not provide an export",
+        "Internal server error",
+        "Pre-transform error",
+        "Failed to load url",
+      ];
+
+      const detectedError =
+        runtimeErrorPatterns.find((pattern) =>
+          logs.includes(pattern)
+        );
+
+      if (detectedError) {
+        console.log(
+          `❌ Runtime error detected in Docker logs: ${detectedError}`
+        );
+
+        throw new Error(
+          JSON.stringify({
+            type: "RUNTIME_ERROR",
+            service: serviceName,
+            healthError:
+              `Detected runtime error: ${detectedError}`,
+            dockerLogs: logs,
+          })
+        );
+      }
+
+      // =====================================
+      // Check HTTP Health
+      // =====================================
 
       await runCommand("docker", [
         "exec",
@@ -172,7 +223,7 @@ const waitForContainerHealth = async (
         "-q",
         "-O",
         "/dev/null",
-        `http://${containerIP}:${containerPort}`,
+        healthUrl,
       ]);
 
       console.log(
@@ -180,19 +231,47 @@ const waitForContainerHealth = async (
       );
 
       return true;
+
     } catch (error) {
       lastError = error.message;
 
       console.log(
         `❌ ${serviceName} health check failed: ${lastError}`
       );
+
+      // If this is an actual runtime error,
+      // immediately stop health checking.
+      try {
+        const parsedError =
+          JSON.parse(error.message);
+
+        if (
+          parsedError.type === "RUNTIME_ERROR"
+        ) {
+          throw error;
+        }
+      } catch (parseError) {
+        if (
+          parseError.message === error.message
+        ) {
+          throw error;
+        }
+      }
     }
 
     await sleep(2000);
   }
 
+  const logs =
+    await getDockerLogs(containerName);
+
   throw new Error(
-    `${serviceName} health check failed: ${lastError}`
+    JSON.stringify({
+      type: "RUNTIME_ERROR",
+      service: serviceName,
+      healthError: lastError,
+      dockerLogs: logs.logs,
+    })
   );
 };
 
@@ -509,7 +588,7 @@ const runProject = async (projectId) => {
       "sh",
       "-c",
 
-      "cd /app/frontend && rm -rf node_modules package-lock.json && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
+      "cd /app/frontend && rm -rf node_modules package-lock.json && npm install && npm run build && npm run dev -- --host 0.0.0.0 --port 5173",
     ]);
 
     console.log(
@@ -726,6 +805,7 @@ const runProject = async (projectId) => {
 
 export {
   stopProject,
+  getDockerLogs,
 };
 
 export default runProject;

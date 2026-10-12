@@ -17,26 +17,33 @@ function ProjectsList({ projects, setProjects }) {
   const navigate = useNavigate();
 
   const fetchProjects = async () => {
-    try {
-      const response = await fetch(
-        "http://localhost:5000/api/projects"
-      );
+  try {
+    const token = localStorage.getItem("token");
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to fetch projects"
-        );
+    const response = await fetch(
+      "http://localhost:5000/api/projects",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
+    );
 
-      setProjects(data.projects);
-    } catch (error) {
-      console.error("Fetch Projects Error:", error);
-    } finally {
-      setLoading(false);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to fetch projects"
+      );
     }
-  };
+
+    setProjects(data.projects);
+  } catch (error) {
+    console.error("Fetch Projects Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchProjects();
@@ -57,10 +64,15 @@ function ProjectsList({ projects, setProjects }) {
     try {
       setDeletingId(projectId);
 
+      const token = localStorage.getItem("token");
+
       const response = await fetch(
         `http://localhost:5000/api/projects/${projectId}`,
         {
           method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 

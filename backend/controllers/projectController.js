@@ -12,6 +12,8 @@ import runProjectInDocker, {
 
 import writeProjectFiles from "../services/writeProjectFiles.js";
 import modifyValidatorService from "../services/modifyValidatorService.js";
+import fixProject from "../services/fixerService.js";
+import syncProjectFiles from "../services/syncProjectFiles.js";
 
 // ======================================================
 // CREATE PROJECT
@@ -22,6 +24,7 @@ export const createProject = async (req, res) => {
     const { name, description, techStack, status } = req.body;
 
     const project = await Project.create({
+      user: req.user.userId,
       name,
       description,
       techStack,
@@ -50,7 +53,9 @@ export const createProject = async (req, res) => {
 
 export const getProjects = async (req, res) => {
   try {
-    const projects = await Project.find().sort({ createdAt: -1 });
+    const projects = await Project.find({
+      user: req.user.userId,
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -73,7 +78,10 @@ export const getProjects = async (req, res) => {
 
 export const getProjectById = async (req, res) => {
   try {
-    const project = await Project.findById(req.params.id);
+    const project = await Project.findOne({
+      _id: req.params.id,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -105,9 +113,10 @@ export const getProjectFiles = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findById(id).select(
-      "name files"
-    );
+    const project = await Project.findOne({
+      _id: id,
+      user: req.user.userId,
+    }).select("name files");
 
     if (!project) {
       return res.status(404).json({
@@ -141,7 +150,10 @@ export const downloadProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: id,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -202,7 +214,10 @@ export const runProject = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: id,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -228,17 +243,191 @@ export const runProject = async (req, res) => {
       `Starting Runner Agent for project: ${id}`
     );
 
-    const runnerResult =
-      await runProjectInDocker(id);
+    // =====================================
+    // Runtime Auto-Fixer
+    // =====================================
 
-    return res.status(200).json({
-      success: true,
-      message: "Project started successfully",
-      projectId: project._id,
-      runner: runnerResult,
-    });
+    const MAX_RUNTIME_FIX_ATTEMPTS = 3;
+
+    let runtimeFixAttempt = 0;
+    let runnerResult = null;
+
+    while (
+      runtimeFixAttempt < MAX_RUNTIME_FIX_ATTEMPTS
+    ) {
+      try {
+        runtimeFixAttempt++;
+
+        console.log(
+          `🚀 Running project attempt ${runtimeFixAttempt}/${MAX_RUNTIME_FIX_ATTEMPTS}`
+        );
+
+        runnerResult =
+          await runProjectInDocker(id);
+
+        console.log(
+          "✅ Project started successfully."
+        );
+
+        return res.status(200).json({
+          success: true,
+          message:
+            runtimeFixAttempt === 1
+              ? "Project started successfully"
+              : "Project fixed and started successfully",
+          projectId: project._id,
+          runner: runnerResult,
+          runtimeFixAttempts:
+            runtimeFixAttempt - 1,
+        });
+      } catch (error) {
+        console.error(
+          `❌ Runtime Error on attempt ${runtimeFixAttempt}:`,
+          error.message
+        );
+
+        // No more attempts
+        if (
+          runtimeFixAttempt >=
+          MAX_RUNTIME_FIX_ATTEMPTS
+        ) {
+          throw error;
+        }
+
+        console.log(
+          "🔧 Starting Runtime Fixer..."
+        );
+
+        // =====================================
+        // Parse Runtime Error
+        // =====================================
+
+        let runtimeError;
+
+        try {
+          runtimeError = JSON.parse(
+            error.message
+          );
+        } catch {
+          runtimeError = {
+            type: "RUNTIME_ERROR",
+            message: error.message,
+          };
+        }
+
+        // =====================================
+        // Sync current disk files to MongoDB
+        // =====================================
+
+        await syncProjectFiles(id);
+
+        // Get latest project from MongoDB
+        const latestProject =
+          await Project.findById(id);
+
+        if (!latestProject) {
+          throw new Error(
+            "Project not found while running Runtime Fixer"
+          );
+        }
+
+        // =====================================
+        // Call Runtime Fixer
+        // =====================================
+
+        const fixedProject =
+          await fixProject({
+            projectName:
+              latestProject.name,
+
+            description:
+              latestProject.description || "",
+
+            techStack:
+              latestProject.techStack || [],
+
+            errors: [runtimeError],
+
+            files:
+              latestProject.files || [],
+          });
+
+        if (
+          !fixedProject ||
+          !Array.isArray(
+            fixedProject.files
+          )
+        ) {
+          throw new Error(
+            "Runtime Fixer returned invalid response"
+          );
+        }
+
+        console.log(
+          "🛠 Runtime Fixer modified files:",
+          fixedProject.files.map(
+            (file) => file.path
+          )
+        );
+
+        // =====================================
+        // Update MongoDB
+        // =====================================
+
+        const existingFiles = new Map(
+          (
+            latestProject.files || []
+          ).map((file) => [
+            file.path,
+            file.content,
+          ])
+        );
+
+        for (const file of fixedProject.files) {
+          if (
+            !file.path ||
+            typeof file.content !==
+              "string"
+          ) {
+            continue;
+          }
+
+          existingFiles.set(
+            file.path,
+            file.content
+          );
+        }
+
+        latestProject.files =
+          Array.from(
+            existingFiles,
+            ([filePath, content]) => ({
+              path: filePath,
+              content,
+            })
+          );
+
+        await latestProject.save();
+
+        // =====================================
+        // Write Fixed Files to Disk
+        // =====================================
+
+        await writeProjectFiles(
+          id,
+          fixedProject.files
+        );
+
+        console.log(
+          "✅ Runtime Fixer changes written to disk."
+        );
+      }
+    }
   } catch (error) {
-    console.error("Run Project Error:", error);
+    console.error(
+      "Run Project Error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
@@ -264,7 +453,10 @@ export const deleteProject = async (req, res) => {
     }
 
     // Find project
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: id,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -353,7 +545,10 @@ export const modifyProject = async (req, res) => {
       });
     }
 
-    const project = await Project.findById(id);
+    const project = await Project.findOne({
+      _id: id,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({

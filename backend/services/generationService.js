@@ -575,21 +575,85 @@ const generateApp = async (
         );
 
         if (!validation.valid) {
+  console.warn(
+    "⚠️ Runtime Fixer introduced static validation errors."
+  );
 
-          console.warn(
-            "⚠️ Runtime Fixer introduced static validation errors."
-          );
+  console.warn(
+    validation.errors
+  );
 
-          console.warn(
-            validation.errors
-          );
+  // Run the normal static Fixer
+  // before trying Docker again.
 
-          /*
-           * We do not send this project directly
-           * to Docker.
-           */
-          continue;
-        }
+  let staticFixAttempt = 0;
+
+  while (
+    !validation.valid &&
+    staticFixAttempt < MAX_FIX_ATTEMPTS
+  ) {
+    staticFixAttempt++;
+
+    console.log(
+      `🔧 Static Fixer after runtime fix ${staticFixAttempt}/${MAX_FIX_ATTEMPTS}`
+    );
+
+    const staticFixResult = await fixProject({
+      projectName:
+        generatedProject.projectName,
+
+      description:
+        generatedProject.description,
+
+      techStack:
+        generatedProject.techStack,
+
+      errors:
+        validation.errors,
+
+      files:
+        generatedProject.files,
+    });
+
+    if (
+      !staticFixResult ||
+      !Array.isArray(
+        staticFixResult.files
+      )
+    ) {
+      throw new Error(
+        "Invalid Static Fixer response after runtime fix"
+      );
+    }
+
+    generatedProject =
+      mergeFixedFiles(
+        generatedProject,
+        staticFixResult.files
+      );
+
+    validation =
+      validateProject(
+        generatedProject
+      );
+
+    console.log(
+      "Validation after static fix:",
+      validation
+    );
+  }
+
+  if (!validation.valid) {
+    console.warn(
+      "❌ Static validation still failing after runtime fix."
+    );
+
+    runtimeValidation.error =
+      validation.errors.join("\n");
+
+    continue;
+  }
+}
 
         /* ===============================================
            WRITE FIXED FILES TO DISK

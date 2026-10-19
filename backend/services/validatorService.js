@@ -1,4 +1,7 @@
 import path from "path";
+import validateStructure from "./validators/structureValidator.js";
+import validateRuntime from "./validators/runtimeValidator.js";
+import validateFeatureCompleteness from "./validators/featureValidator.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -17,6 +20,23 @@ const validateProject = (project) => {
       totalFiles: 0,
     };
   }
+  validateStructure({
+    files,
+    errors,
+    warnings,
+  });
+
+  validateFeatureCompleteness({
+    files,
+    errors,
+    warnings,
+  });
+
+  validateRuntime({
+    files,
+    errors,
+    warnings,
+  });
 
   const normalizePath = (filePath) =>
     filePath.replace(/\\/g, "/");
@@ -1306,199 +1326,6 @@ if (hasFrontend) {
           }
         }
       }
-    }
-  }
-
-  // =====================================
-  // 17. Entity field consistency
-  // =====================================
-
-  const fieldPairs = [
-    [
-      "nurseDailyRate",
-      "dailyRate",
-    ],
-    [
-      "patientDailyRate",
-      "dailyRateCharged",
-    ],
-    [
-      "numberOfDays",
-      "days",
-    ],
-    [
-      "patientAmount",
-      "patientTotal",
-    ],
-    [
-      "nurseAmount",
-      "nurseTotal",
-    ],
-    [
-      "companyMargin",
-      "margin",
-    ],
-  ];
-
-  const hasCanonicalField =
-    (canonicalField) =>
-      files.some((file) =>
-        file.content.includes(
-          canonicalField
-        )
-      );
-
-  for (const [
-    canonicalField,
-    alternativeField,
-  ] of fieldPairs) {
-    if (
-      hasCanonicalField(
-        canonicalField
-      )
-    ) {
-      const filesUsingAlternative =
-        files.filter((file) =>
-          file.content.includes(
-            alternativeField
-          )
-        );
-
-      if (
-        filesUsingAlternative.length >
-        0
-      ) {
-        warnings.push(
-          `Possible field-name mismatch: "${canonicalField}" and "${alternativeField}" are both used.`
-        );
-      }
-    }
-  }
-
-  // =====================================
-  // 18. Billing validation
-  // =====================================
-
-  const billingFiles =
-    files.filter((file) => {
-      const normalizedPath =
-        normalizePath(file.path);
-
-      return (
-        normalizedPath.includes("bill") ||
-        normalizedPath.includes(
-          "billing"
-        ) ||
-        normalizedPath.includes(
-          "assignment"
-        )
-      );
-    });
-
-  for (const file of billingFiles) {
-    const content = file.content;
-
-    const usesHourlyBilling =
-      /hoursWorked|hourlyRate|hourlyRatePaidToNurse|hourlyRateChargedToPatient/.test(
-        content
-      );
-
-    if (usesHourlyBilling) {
-      errors.push(
-        `Invalid billing logic in ${file.path}: hourly billing detected. This project requires daily billing using numberOfDays, nurseDailyRate and patientDailyRate.`
-      );
-    }
-  }
-
-  // =====================================
-  // 19. Required daily billing fields
-  // =====================================
-
-  const billModel =
-    getFile(
-      "backend/models/Bill.js"
-    );
-
-  if (billModel) {
-    const requiredBillingFields = [
-      "numberOfDays",
-      "nurseDailyRate",
-      "patientDailyRate",
-    ];
-
-    for (const field of requiredBillingFields) {
-      if (!billModel.includes(field)) {
-        errors.push(
-          `Bill model is missing required billing field: ${field}`
-        );
-      }
-    }
-  }
-
-  // =====================================
-  // 20. Billing calculation validation
-  // =====================================
-
-  const billingCalculationFiles =
-    billingFiles.filter((file) =>
-      /patientAmount|nurseAmount|companyMargin/.test(
-        file.content
-      )
-    );
-
-  if (
-    billingCalculationFiles.length >
-    0
-  ) {
-    const hasPatientCalculation =
-      billingCalculationFiles.some(
-        (file) =>
-          /patientAmount\s*=\s*.*numberOfDays.*patientDailyRate/.test(
-            file.content
-          ) ||
-          /patientDailyRate.*numberOfDays/.test(
-            file.content
-          )
-      );
-
-    const hasNurseCalculation =
-      billingCalculationFiles.some(
-        (file) =>
-          /nurseAmount\s*=\s*.*numberOfDays.*nurseDailyRate/.test(
-            file.content
-          ) ||
-          /nurseDailyRate.*numberOfDays/.test(
-            file.content
-          )
-      );
-
-    const hasMarginCalculation =
-      billingCalculationFiles.some(
-        (file) =>
-          /companyMargin\s*=\s*.*patientAmount.*nurseAmount/.test(
-            file.content
-          ) ||
-          /patientAmount.*nurseAmount/.test(
-            file.content
-          )
-      );
-
-    if (!hasPatientCalculation) {
-      warnings.push(
-        "Patient billing calculation could not be verified."
-      );
-    }
-
-    if (!hasNurseCalculation) {
-      warnings.push(
-        "Nurse billing calculation could not be verified."
-      );
-    }
-
-    if (!hasMarginCalculation) {
-      warnings.push(
-        "Company margin calculation could not be verified."
-      );
     }
   }
 

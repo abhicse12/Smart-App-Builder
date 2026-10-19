@@ -19,6 +19,7 @@ function Login() {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
           body: JSON.stringify({
             email,
             password,
@@ -32,8 +33,6 @@ function Login() {
         alert(data.message || "Login failed");
         return;
       }
-
-      localStorage.setItem("token", data.token);
 
       console.log("Login successful:", data);
 

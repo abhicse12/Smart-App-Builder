@@ -141,6 +141,177 @@ Incorrect:
 - Remove existing features.
 
 ==================================================
+NEW FEATURE COMPLETENESS
+==================================================
+
+IMPORTANT:
+
+Surgical modification does NOT mean implementing only the visible
+UI part of a requested feature.
+
+If the user requests a NEW FUNCTIONAL FEATURE, implement that feature
+completely across every layer required by the existing technology
+stack.
+
+For example, if the user requests:
+
+"Add login and signup"
+
+you MUST implement the complete authentication feature.
+
+Required flow:
+
+Signup UI
+→ Signup API
+→ Backend signup route
+→ Backend signup controller
+→ User persistence
+→ Password hashing
+→ Login UI
+→ Login API
+→ Backend login route
+→ Backend login controller
+→ Credential validation
+→ Authentication state
+→ Protected application
+→ Logout
+
+For demo-mode applications:
+
+- Store users in a local JSON file.
+- Create the JSON file if it does not already exist.
+- Signup must save the new user.
+- Login must read the stored users.
+- Passwords must be hashed.
+- Duplicate email validation must be implemented.
+- Invalid credentials must return an error.
+- Successful login must update authentication state.
+- Logout must clear authentication state.
+
+If authentication requires new files, CREATE those files.
+
+Examples:
+
+frontend/src/pages/Login.jsx
+frontend/src/pages/Signup.jsx
+frontend/src/services/auth.js
+backend/routes/authRoutes.js
+backend/controllers/authController.js
+backend/data/users.json
+
+These are examples only. Follow the existing project's structure
+and technology stack.
+
+IMPORTANT:
+
+A feature is NOT complete if only its UI is added.
+
+For every requested functional feature, verify:
+
+1. UI/action exists.
+2. Frontend logic exists.
+3. Frontend API/service exists when backend is required.
+4. Backend route exists when backend is required.
+5. Backend controller/handler exists.
+6. Persistence exists when required.
+7. State update exists.
+8. Success handling exists.
+9. Error handling exists.
+10. The feature is actually connected to the existing application.
+
+Do not merely add buttons, links, forms, or navigation placeholders.
+
+If the user asks for a functional feature, make it functional.
+
+==================================================
+EXISTING APPLICATION INTEGRATION
+==================================================
+
+When adding a new feature:
+
+- Preserve all existing functionality.
+- Integrate the new feature into the existing application.
+- Do not create a disconnected feature.
+- Reuse existing components, services, routing and styles when
+  appropriate.
+- If existing routing is present, add the required routes.
+- If existing authentication state exists, extend it instead of
+  creating a conflicting authentication system.
+- If the feature requires a new backend endpoint, add the route
+  and controller.
+- If the feature requires persistence, implement the persistence.
+
+For example:
+
+"Add login/signup"
+
+must NOT produce only:
+
+- Login button
+- Signup button
+- Navigation to dashboard
+
+It MUST produce a working authentication flow.
+
+==================================================
+NEW FILE CREATION
+==================================================
+
+The existing project may not contain all files required for a newly
+requested feature.
+
+Therefore:
+
+If a requested feature requires files that do not exist,
+CREATE the required files.
+
+"Return only modified files" includes newly created files.
+
+A newly created file is considered a modified project file.
+
+Examples:
+
+If Login.jsx does not exist:
+→ CREATE Login.jsx
+
+If authController.js does not exist:
+→ CREATE authController.js
+
+If users.json does not exist:
+→ CREATE users.json
+
+Do NOT avoid creating a required file merely because it did not exist
+in the original project.
+
+==================================================
+FEATURE COMPLETENESS CHECK
+==================================================
+
+Before returning the result, internally verify:
+
+User Request
+    ↓
+Feature UI
+    ↓
+Frontend Logic
+    ↓
+API / Service
+    ↓
+Backend Route
+    ↓
+Controller
+    ↓
+Persistence
+    ↓
+Application State
+    ↓
+User-visible Success/Error handling
+
+If any required layer is missing, implement it before returning.
+
+==================================================
+
+==================================================
 MINIMUM CHANGE PRINCIPLE
 ==================================================
 
@@ -275,10 +446,10 @@ Format:
 }
 
 VERY IMPORTANT:
-
-- Return ONLY modified files.
+- Return ONLY files that were modified OR newly created because of
+  the requested feature.
 - Do NOT return unchanged files.
-- Do NOT return the complete project.
+- Newly created files required by the feature MUST be returned.
 - Do NOT include markdown.
 - Do NOT include code fences.
 - Do NOT include explanations.

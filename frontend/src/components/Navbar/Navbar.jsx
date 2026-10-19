@@ -1,11 +1,48 @@
+import { useEffect, useState } from "react";
 import { Bell, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 function Navbar() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/auth/me",
+          {
+            method: "GET",
+            credentials: "include",
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setUser(data.user);
+        }
+      } catch (error) {
+        console.error("Fetch User Error:", error);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
+
+  const userName = user?.name || "User";
+
+  const initials = userName
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   return (
     <header className="h-16 border-b border-slate-800 bg-slate-950 px-6 flex items-center justify-between">
+      
       {/* Left */}
       <div className="relative w-80">
         <Search
@@ -21,6 +58,7 @@ function Navbar() {
 
       {/* Right */}
       <div className="flex items-center gap-5">
+
         <button className="relative p-2 rounded-lg hover:bg-slate-800 transition">
           <Bell className="text-slate-300" size={20} />
 
@@ -29,12 +67,14 @@ function Navbar() {
 
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarFallback>AP</AvatarFallback>
+            <AvatarFallback>
+              {initials}
+            </AvatarFallback>
           </Avatar>
 
           <div>
             <h3 className="text-sm font-semibold text-white">
-              Abhishek
+              {userName}
             </h3>
 
             <p className="text-xs text-slate-400">
@@ -42,6 +82,7 @@ function Navbar() {
             </p>
           </div>
         </div>
+
       </div>
     </header>
   );

@@ -29,8 +29,35 @@ const menuItems = [
 
 function Sidebar() {
   const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/auth/logout",
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Logout failed"
+        );
+      }
+
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout Error:", error);
+      alert("Logout failed. Please try again.");
+    }
+  };
+
   return (
     <aside className="w-64 h-screen bg-slate-900 border-r border-slate-800 flex flex-col justify-between">
+      
       {/* Logo */}
       <div>
         <div className="p-6 border-b border-slate-800">
@@ -40,7 +67,10 @@ function Sidebar() {
             </div>
 
             <div>
-              <h2 className="text-white font-bold">AI App Builder</h2>
+              <h2 className="text-white font-bold">
+                AI App Builder
+              </h2>
+
               <p className="text-slate-400 text-xs">
                 Multi-Agent Platform
               </p>
@@ -65,10 +95,7 @@ function Sidebar() {
       {/* Footer */}
       <div className="p-4 border-t border-slate-800">
         <button
-          onClick={() => {
-            localStorage.removeItem("token");
-            navigate("/login");
-          }}
+          onClick={handleLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition"
         >
           <LogOut size={20} />

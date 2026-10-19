@@ -12,121 +12,110 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
   const [loading, setLoading] = useState(false);
 
   const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      alert("Please describe the application requirements.");
-      return;
-    }
+  if (!prompt.trim()) {
+    alert("Please describe the application requirements.");
+    return;
+  }
 
-    if (!id) {
-      alert("Project ID not found.");
-      return;
-    }
+  if (!id) {
+    alert("Project ID not found.");
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setIsGenerating(true);
+  try {
+    setLoading(true);
+    setIsGenerating(true);
 
-      // ==============================
-      // Get JWT Token
-      // ==============================
+    // ==============================
+    // Architect Agent
+    // ==============================
 
-      const token = localStorage.getItem("token");
+    setAgentStep(0);
 
-      if (!token) {
-        alert("Authentication required. Please login again.");
-        return;
+    console.log("Starting application generation...");
+
+    const response = await fetch(
+      "http://localhost:5000/api/generate",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        // HttpOnly cookie automatically send hogi
+        credentials: "include",
+
+        body: JSON.stringify({
+          projectId: id,
+          prompt: prompt.trim(),
+          mode: mode,
+        }),
       }
+    );
 
-      // ==============================
-      // Architect Agent
-      // ==============================
+    // ==============================
+    // Coder Agent
+    // ==============================
 
-      setAgentStep(0);
+    setAgentStep(1);
 
-      console.log("Starting application generation...");
+    const data = await response.json();
 
-      const response = await fetch(
-        "http://localhost:5000/api/generate",
-        {
-          method: "POST",
+    console.log("Generation response:", data);
 
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            projectId: id,
-            prompt: prompt.trim(),
-            mode: mode,
-          }),
-        }
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to generate application"
       );
-
-      // ==============================
-      // Coder Agent
-      // ==============================
-
-      setAgentStep(1);
-
-      const data = await response.json();
-
-      console.log("Generation response:", data);
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to generate application"
-        );
-      }
-
-      // ==============================
-      // Tester / Validator Agent
-      // ==============================
-
-      setAgentStep(2);
-
-      await new Promise((resolve) =>
-        setTimeout(resolve, 1000)
-      );
-
-      // ==============================
-      // Generation Completed
-      // ==============================
-
-      setAgentStep(3);
-
-      console.log(
-        "Application generation completed!"
-      );
-
-      setPrompt("");
-
-      alert(
-        "Application generated successfully!"
-      );
-
-      // Refresh Project Details page
-      // so generated files and project data are visible
-      window.location.reload();
-
-    } catch (error) {
-      console.error(
-        "Generation Error:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Something went wrong while generating the application."
-      );
-
-      setAgentStep(0);
-
-    } finally {
-      setLoading(false);
-      setIsGenerating(false);
     }
-  };
+
+    // ==============================
+    // Tester / Validator Agent
+    // ==============================
+
+    setAgentStep(2);
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, 1000)
+    );
+
+    // ==============================
+    // Generation Completed
+    // ==============================
+
+    setAgentStep(3);
+
+    console.log(
+      "Application generation completed!"
+    );
+
+    setPrompt("");
+
+    alert(
+      "Application generated successfully!"
+    );
+
+    window.location.reload();
+
+  } catch (error) {
+    console.error(
+      "Generation Error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Something went wrong while generating the application."
+    );
+
+    setAgentStep(0);
+
+  } finally {
+    setLoading(false);
+    setIsGenerating(false);
+  }
+};
 
   return (
     <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg">

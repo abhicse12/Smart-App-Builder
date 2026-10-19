@@ -40,74 +40,63 @@ function ProjectDetails() {
 
   useEffect(() => {
     const fetchProject = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const response = await fetch(
-          `http://localhost:5000/api/projects/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch project"
-          );
-        }
-
-        setProject(data.project);
-
-        if (data.project.status === "generated") {
-          setAgentStep(3);
-          setIsGenerating(false);
-        }
-      } catch (error) {
-        console.error("Fetch Project Error:", error);
-      } finally {
-        setLoading(false);
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/projects/${id}`,
+      {
+        method: "GET",
+        credentials: "include",
       }
-    };
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to fetch project"
+      );
+    }
+
+    setProject(data.project);
+  } catch (error) {
+    console.error("Fetch Project Error:", error);
+  } finally {
+    setLoading(false);
+  }
+};
 
     const fetchProjectFiles = async () => {
-      try {
-        const token = localStorage.getItem("token");
-
-        const response = await fetch(
-          `http://localhost:5000/api/projects/${id}/files`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message || "Failed to fetch files"
-          );
-        }
-
-        setFiles(data.files || []);
-
-        if (data.files?.length > 0) {
-          setSelectedFile(data.files[0]);
-        }
-      } catch (error) {
-        console.error(
-          "Fetch Project Files Error:",
-          error
-        );
-      } finally {
-        setFilesLoading(false);
+  try {
+    const response = await fetch(
+      `http://localhost:5000/api/projects/${id}/files`,
+      {
+        method: "GET",
+        credentials: "include",
       }
-    };
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to fetch files"
+      );
+    }
+
+    setFiles(data.files || []);
+
+    if (data.files?.length > 0) {
+      setSelectedFile(data.files[0]);
+    }
+  } catch (error) {
+    console.error(
+      "Fetch Project Files Error:",
+      error
+    );
+  } finally {
+    setFilesLoading(false);
+  }
+};
 
     fetchProject();
     fetchProjectFiles();
@@ -123,16 +112,11 @@ function ProjectDetails() {
       setRunError("");
       setPreviewUrl("");
 
-      const token = localStorage.getItem("token");
-
       const response = await fetch(
         `http://localhost:5000/api/projects/${id}/run`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include",
         }
       );
 

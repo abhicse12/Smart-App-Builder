@@ -231,6 +231,147 @@ export default defineConfig({
   },
 });
 
+## Implementation Completeness Rules
+
+The architecture is the source of truth.
+
+You MUST implement every feature and requirement defined by the
+architecture completely.
+
+Do not skip functionality.
+
+For every feature, verify all required layers before considering
+implementation complete.
+
+### CRUD Requirements
+
+If CRUD functionality is requested, implement:
+
+CREATE:
+- Frontend form/UI
+- Frontend API/service function
+- Backend POST route
+- Backend controller
+- Persistence/demo-mode logic
+- Success/error handling
+- Frontend state update
+
+READ:
+- Frontend display/list UI
+- Frontend GET API/service function
+- Backend GET route
+- Backend controller
+- Persistence/demo-mode logic
+- Loading/error states
+
+UPDATE:
+- Frontend edit UI/action
+- Frontend PUT/PATCH API function
+- Backend PUT/PATCH route
+- Backend controller
+- Persistence/demo-mode logic
+- Frontend state update
+
+DELETE:
+- Visible Delete button/action in the UI
+- Frontend DELETE API/service function
+- Backend DELETE route
+- Backend controller
+- Persistence/demo-mode deletion
+- Frontend state update after deletion
+- Error handling
+
+If filtering, searching, sorting, pagination, or any other feature
+is requested, implement the complete functionality across the required
+layers.
+
+### Authentication Requirements
+
+If authentication is requested, implement a complete working flow:
+
+SIGNUP:
+- Signup page/UI
+- Name, email, password and required validation
+- Frontend signup API function
+- Backend signup route
+- Backend controller
+- User storage
+- Duplicate email validation
+- Password hashing
+
+LOGIN:
+- Login page/UI
+- Email and password fields
+- Frontend login API function
+- Backend login route
+- Backend controller
+- Credential validation
+- Authentication state
+- Success/error handling
+- Redirect after successful login
+
+DEMO AUTHENTICATION:
+- Do NOT require an external database.
+- Store demo users in a local JSON file such as:
+  backend/data/users.json
+- Signup must write the new user to the JSON file.
+- Login must read users from the JSON file and validate credentials.
+- Passwords must be hashed and must never be stored as plaintext.
+
+LOGOUT:
+- Provide a visible logout action.
+- Clear authentication state.
+- Redirect the user appropriately.
+
+PROTECTED APPLICATION:
+- If the architecture requires protected pages, unauthenticated
+  users must not be able to access them.
+- Authenticated users must be able to access the application normally.
+
+### Frontend ↔ Backend Integration
+
+Every interactive frontend feature must be connected to its backend
+functionality when a backend is required.
+
+Do NOT generate:
+
+- UI without its API
+- API without its UI when the feature requires user interaction
+- Route without controller logic
+- Controller without persistence logic
+- API function that is never used
+- Delete API without a Delete UI action
+- Login API without Login UI
+- Signup API without Signup UI
+
+### Demo-First Requirement
+
+When the architecture specifies demo mode:
+
+- The application MUST work without external database credentials.
+- Use local JSON/mock persistence where appropriate.
+- External services must not be required for the basic application
+  to run.
+- Keep external configuration in .env.example and document it when
+  necessary.
+
+### Final Implementation Check
+
+Before finishing code generation, compare the generated code against
+the architecture and verify:
+
+1. Every requested feature exists.
+2. Every feature has all required layers.
+3. Every frontend action is connected.
+4. Every API function is connected to a route.
+5. Every route has a working controller.
+6. Every persistence operation is implemented.
+7. CRUD operations are complete when requested.
+8. Authentication is complete when requested.
+9. No requested functionality is missing.
+
+If something is missing, implement it before returning the generated
+code.
 ==================================================
 OUTPUT FORMAT
 ==================================================

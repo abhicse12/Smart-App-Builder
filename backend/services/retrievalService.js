@@ -1,6 +1,10 @@
 import KnowledgeChunk from "../models/KnowledgeChunk.js";
 import { generateQueryEmbedding } from "./embeddingService.js";
 
+/* ==================================================
+   COSINE SIMILARITY
+================================================== */
+
 const cosineSimilarity = (vectorA, vectorB) => {
   let dotProduct = 0;
   let magnitudeA = 0;
@@ -22,67 +26,137 @@ const cosineSimilarity = (vectorA, vectorB) => {
   );
 };
 
-const calculateStackRelevance = (source, techStack = []) => {
-  const normalizedStack = techStack.map((tech) =>
-    tech.toLowerCase()
+/* ==================================================
+   NORMALIZE TECHNOLOGY STACK
+================================================== */
+
+const normalizeTechStack = (techStack = []) => {
+  return techStack.map((tech) =>
+    tech.toLowerCase().trim()
   );
+};
 
-  const sourceName = source.toLowerCase();
+/* ==================================================
+   GET ALLOWED TECHNOLOGIES
+================================================== */
 
-  // Static HTML/CSS/JS project
+const getAllowedTechnologies = (techStack = []) => {
+  const normalizedStack =
+    normalizeTechStack(techStack);
+
+  const allowed = new Set();
+
+  /* ----------------------------------------------
+     Common knowledge is always allowed
+  ---------------------------------------------- */
+
+  allowed.add("common");
+
+  /* ----------------------------------------------
+     Static HTML/CSS/JavaScript
+  ---------------------------------------------- */
+
   if (
     normalizedStack.includes("html") &&
     normalizedStack.includes("css") &&
     normalizedStack.includes("javascript") &&
-    !normalizedStack.includes("react") &&
-    !normalizedStack.includes("next.js")
+    !normalizedStack.includes("react")
   ) {
-    if (sourceName === "static-web.md") {
-      return 1.0;
-    }
-
-    if (sourceName === "docker.md") {
-      return 0.7;
-    }
-
-    if (sourceName === "react-vite.md") {
-      return 0.2;
-    }
+    allowed.add("static-web");
   }
 
-  // React project
-  if (normalizedStack.includes("react")) {
-    if (sourceName === "react-vite.md") {
-      return 1.0;
-    }
+  /* ----------------------------------------------
+     React
+  ---------------------------------------------- */
 
-    if (sourceName === "docker.md") {
-      return 0.7;
-    }
+  if (
+    normalizedStack.includes("react") ||
+    normalizedStack.includes("vite")
+  ) {
+    allowed.add("react-vite");
   }
 
-  // MERN / Node backend project
+  /* ----------------------------------------------
+     Node.js / Express
+  ---------------------------------------------- */
+
   if (
     normalizedStack.includes("node.js") ||
-    normalizedStack.includes("express") ||
-    normalizedStack.includes("mongodb")
+    normalizedStack.includes("node") ||
+    normalizedStack.includes("express")
   ) {
-    if (sourceName === "mern.md") {
-      return 1.0;
-    }
-
-    if (sourceName === "authentication.md") {
-      return 0.8;
-    }
-
-    if (sourceName === "docker.md") {
-      return 0.7;
-    }
+    allowed.add("node-express");
   }
 
-  // Default
-  return 0.5;
+  /* ----------------------------------------------
+     MERN
+  ---------------------------------------------- */
+
+  if (
+    normalizedStack.includes("mern")
+  ) {
+    allowed.add("mern");
+    allowed.add("react-vite");
+    allowed.add("node-express");
+  }
+
+  /* ----------------------------------------------
+     Python FastAPI
+  ---------------------------------------------- */
+
+  if (
+    normalizedStack.includes("python") ||
+    normalizedStack.includes("fastapi")
+  ) {
+    allowed.add("python-fastapi");
+  }
+
+  /* ----------------------------------------------
+     Java Spring Boot
+  ---------------------------------------------- */
+
+  if (
+    normalizedStack.includes("java") ||
+    normalizedStack.includes("spring boot") ||
+    normalizedStack.includes("springboot")
+  ) {
+    allowed.add("java-springboot");
+  }
+
+  return allowed;
 };
+
+/* ==================================================
+   TECHNOLOGY RELEVANCE
+================================================== */
+
+const calculateTechnologyRelevance = (
+  chunk,
+  allowedTechnologies
+) => {
+  const category =
+    chunk.metadata?.category || "common";
+
+  const technology =
+    chunk.metadata?.technology || "";
+
+  /* Common documents are always relevant */
+  if (category === "common") {
+    return 0.8;
+  }
+
+  /* Selected technology-specific document */
+  if (allowedTechnologies.has(technology)) {
+    return 1.0;
+  }
+
+  /* Different technology */
+  return 0.0;
+};
+
+/* ==================================================
+   RETRIEVE RELEVANT KNOWLEDGE
+================================================== */
 
 const retrieveRelevantKnowledge = async (
   query,
@@ -90,14 +164,33 @@ const retrieveRelevantKnowledge = async (
   topK = 3
 ) => {
   if (!query || !query.trim()) {
-    throw new Error("Query is required for retrieval");
+    throw new Error(
+      "Query is required for retrieval"
+    );
   }
 
-  // 1. Convert query into embedding
+  /*
+    Backward compatibility:
+    If second argument is a number,
+    treat it as topK.
+  */
+
+  if (typeof techStack === "number") {
+    topK = techStack;
+    techStack = [];
+  }
+
+  /* ----------------------------------------------
+     1. Generate query embedding
+  ---------------------------------------------- */
+
   const queryEmbedding =
     await generateQueryEmbedding(query);
 
-  // 2. Get knowledge chunks
+  /* ----------------------------------------------
+     2. Get knowledge chunks
+  ---------------------------------------------- */
+
   const knowledgeChunks =
     await KnowledgeChunk.find({}).lean();
 
@@ -105,50 +198,113 @@ const retrieveRelevantKnowledge = async (
     return [];
   }
 
-  // 3. Calculate semantic + technology relevance
-  const rankedChunks = knowledgeChunks
-    .map((chunk) => {
-      const semanticScore = cosineSimilarity(
-        queryEmbedding,
-        chunk.embedding
-      );
+  /* ----------------------------------------------
+     3. Determine allowed technologies
+  ---------------------------------------------- */
 
-      const stackScore = calculateStackRelevance(
-        chunk.source,
-        techStack
-      );
+  const allowedTechnologies =
+    getAllowedTechnologies(
+      techStack
+    );
 
-      // 70% semantic similarity
-      // 30% technology relevance
-      const finalScore =
-        semanticScore * 0.7 +
-        stackScore * 0.3;
-
-      return {
-        ...chunk,
-        semanticScore,
-        stackScore,
-        score: finalScore,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  // 4. Minimum relevance threshold
-  const MIN_RELEVANCE_SCORE = 0.60;
-
-  const relevantChunks = rankedChunks.filter(
-    (chunk) => chunk.score >= MIN_RELEVANCE_SCORE
+  console.log(
+    "\n🧠 RAG allowed technologies:",
+    [...allowedTechnologies]
   );
 
-  // 5. Return top relevant knowledge
+  /* ----------------------------------------------
+     4. Filter technology-specific knowledge
+  ---------------------------------------------- */
+
+  const filteredChunks =
+    knowledgeChunks.filter((chunk) => {
+      const category =
+        chunk.metadata?.category || "common";
+
+      /*
+        Common documents are always allowed.
+        Technology-specific documents are allowed
+        only when they match the selected stack.
+      */
+
+      if (category === "common") {
+        return true;
+      }
+
+      const technology =
+        chunk.metadata?.technology;
+
+      return allowedTechnologies.has(
+        technology
+      );
+    });
+
+  /* ----------------------------------------------
+     5. Calculate semantic + technology score
+  ---------------------------------------------- */
+
+  const rankedChunks =
+    filteredChunks
+      .map((chunk) => {
+        const semanticScore =
+          cosineSimilarity(
+            queryEmbedding,
+            chunk.embedding
+          );
+
+        const technologyScore =
+          calculateTechnologyRelevance(
+            chunk,
+            allowedTechnologies
+          );
+
+        /*
+          70% semantic similarity
+          30% technology relevance
+        */
+
+        const finalScore =
+          semanticScore * 0.7 +
+          technologyScore * 0.3;
+
+        return {
+          ...chunk,
+          semanticScore,
+          technologyScore,
+          score: finalScore,
+        };
+      })
+      .sort(
+        (a, b) => b.score - a.score
+      );
+
+  /* ----------------------------------------------
+     6. Minimum relevance threshold
+  ---------------------------------------------- */
+
+  const MIN_RELEVANCE_SCORE = 0.60;
+
+  const relevantChunks =
+    rankedChunks.filter(
+      (chunk) =>
+        chunk.score >=
+        MIN_RELEVANCE_SCORE
+    );
+
+  /* ----------------------------------------------
+     7. Return top results
+  ---------------------------------------------- */
+
   return relevantChunks
     .slice(0, topK)
     .map((chunk) => ({
       source: chunk.source,
       content: chunk.content,
       score: chunk.score,
-      semanticScore: chunk.semanticScore,
-      stackScore: chunk.stackScore,
+      semanticScore:
+        chunk.semanticScore,
+      technologyScore:
+        chunk.technologyScore,
     }));
 };
 

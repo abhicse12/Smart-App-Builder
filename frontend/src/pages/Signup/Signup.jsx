@@ -39,14 +39,10 @@ function Signup() {
         alert(data.message || "Signup failed");
         return;
       }
-
-      // Save JWT token
-      localStorage.setItem("token", data.token);
-
       console.log("Signup successful:", data);
 
-      // Go to dashboard
-      navigate("/dashboard");
+      // Go to login page
+      navigate("/login");
     } catch (error) {
       console.error("Signup Error:", error);
 

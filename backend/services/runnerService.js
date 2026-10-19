@@ -96,7 +96,7 @@ const getDockerHostPort = async (
 const waitForHealth = async (
   url,
   serviceName,
-  attempts = 15
+  attempts = 60
 ) => {
   let lastError = null;
 
@@ -121,9 +121,12 @@ const waitForHealth = async (
       }
 
       lastError = `HTTP ${response.status}`;
-    } catch (error) {
-      lastError = error.message;
-    }
+    }catch (error) {
+  console.error("HEALTH CHECK FETCH ERROR:", error);
+  console.error("HEALTH CHECK URL:", url);
+
+  lastError = error.message;
+}
 
     await sleep(2000);
   }
@@ -588,7 +591,7 @@ const runProject = async (projectId) => {
       "sh",
       "-c",
 
-      "cd /app/frontend && rm -rf node_modules package-lock.json && npm install && npm run build && npm run dev -- --host 0.0.0.0 --port 5173",
+      "cd /app/frontend && npm install && npm run build && npm run dev -- --host 0.0.0.0 --port 5173",
     ]);
 
     console.log(
@@ -604,6 +607,15 @@ const runProject = async (projectId) => {
         containerName,
         5173
       );
+    console.log("DEBUG Docker mapped port:", frontendHostPort);
+
+    const portCheck = await runCommand("docker", [
+      "port",
+      containerName,
+      "5173/tcp",
+    ]);
+
+console.log("DEBUG docker port output:", portCheck.stdout);
 
     console.log(
       `React frontend mapped to host port: ${frontendHostPort}`
@@ -616,9 +628,10 @@ const runProject = async (projectId) => {
     // 0.0.0.0:5173.
     // =====================================
 
-    await waitForContainerHealth(
-      containerName,
-      5173,
+    const frontendUrl = `http://127.0.0.1:${frontendHostPort}`;
+    console.log("DEBUG frontendUrl:", frontendUrl);
+    await waitForHealth(
+      frontendUrl,
       "React Frontend"
     );
 

@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import Groq from "groq-sdk";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -30,7 +31,7 @@ const parseAIJson = (text) => {
   }
 };
 
-const generateWithAI = async (prompt, retries = 5) => {
+const generateWithGemini = async (prompt, retries) => {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not loaded");
   }
@@ -41,6 +42,10 @@ const generateWithAI = async (prompt, retries = 5) => {
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      console.log(
+        `🤖 Gemini request: Attempt ${attempt}/${retries}`
+      );
+
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-lite",
         contents: prompt,
@@ -49,30 +54,92 @@ const generateWithAI = async (prompt, retries = 5) => {
         },
       });
 
-      const text = response.text;
-
-      return parseAIJson(text);
+      return parseAIJson(response.text);
     } catch (error) {
       console.error(
-        `AI Request failed: Attempt ${attempt}/${retries}`,
+        `Gemini failed: Attempt ${attempt}/${retries}`,
         error.message
       );
 
-      if (error.status === 429 && attempt < retries) {
-        const waitTime = 60000;
+      if (attempt < retries) {
+        const waitTime = 5000 * attempt;
 
         console.log(
-          `Rate limit reached. Waiting ${
-            waitTime / 1000
-          } seconds before retrying...`
+          `Waiting ${waitTime / 1000}s before Gemini retry...`
         );
 
         await sleep(waitTime);
-
-        continue;
       }
+    }
+  }
 
-      throw error;
+  throw new Error("Gemini failed after all retry attempts");
+};
+
+const generateWithGroq = async (prompt) => {
+  if (!process.env.GROQ_API_KEY) {
+    throw new Error("GROQ_API_KEY is not loaded");
+  }
+
+  const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY,
+  });
+
+  console.log("🟢 Switching to Groq fallback...");
+
+  const response = await groq.chat.completions.create({
+    model: "openai/gpt-oss-120b",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are an AI software engineering agent. Return valid JSON only. Do not use markdown code fences.",
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    temperature: 0,
+    response_format: {
+      type: "json_object",
+    },
+  });
+
+  const text =
+    response.choices?.[0]?.message?.content;
+
+  if (!text) {
+    throw new Error("Groq returned an empty response");
+  }
+
+  return parseAIJson(text);
+};
+
+const generateWithAI = async (prompt, retries = 3) => {
+  try {
+    return await generateWithGemini(prompt, retries);
+  } catch (geminiError) {
+    console.error(
+      "❌ Gemini unavailable:",
+      geminiError.message
+    );
+
+    console.log(
+      "🔄 Attempting Groq fallback..."
+    );
+
+    try {
+      return await generateWithGroq(prompt);
+    } catch (groqError) {
+      console.error(
+        "❌ Groq fallback failed:",
+        groqError.message
+      );
+
+      throw new Error(
+        `Both AI providers failed. Gemini: ${geminiError.message} | Groq: ${groqError.message}`
+      );
     }
   }
 };

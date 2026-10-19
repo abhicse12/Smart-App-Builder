@@ -18,14 +18,11 @@ function ProjectsList({ projects, setProjects }) {
 
   const fetchProjects = async () => {
   try {
-    const token = localStorage.getItem("token");
-
     const response = await fetch(
       "http://localhost:5000/api/projects",
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        method: "GET",
+        credentials: "include",
       }
     );
 
@@ -64,15 +61,11 @@ function ProjectsList({ projects, setProjects }) {
     try {
       setDeletingId(projectId);
 
-      const token = localStorage.getItem("token");
-
       const response = await fetch(
         `http://localhost:5000/api/projects/${projectId}`,
         {
           method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: "include",
         }
       );
 

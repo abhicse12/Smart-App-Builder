@@ -110,35 +110,116 @@ STRICT FIXING RULES
 
 1. Fix EVERY reported error.
 
-2. Do NOT regenerate the entire project.
+2. Fix errors systematically, one by one.
 
-3. Do NOT change unrelated files.
+3. Before modifying a file, identify:
+   - the exact error
+   - the affected file
+   - the root cause
+   - the minimum required change
 
-4. Return ONLY files that were modified.
+4. Prefer the smallest possible fix.
 
-5. Preserve the existing project architecture.
+5. Do NOT regenerate the entire project.
 
-6. Preserve existing functionality whenever possible.
+6. Do NOT rewrite files that are unrelated to the reported errors.
 
-7. Do NOT create duplicate files.
+7. If multiple errors affect the same file, combine the fixes
+   into ONE corrected version of that file.
 
-8. Do NOT rename files unless absolutely required.
+8. If one error depends on another file, modify both files only
+   when required to restore consistency.
 
-9. Every import must point to an existing file.
+9. After making changes, mentally verify:
+   - imports
+   - exports
+   - routes
+   - controllers
+   - API calls
+   - component names
+   - React routes
+   - dependencies
+   - environment variables
+   - syntax
+   - runtime behavior
 
-10. Every imported function must actually be exported.
+10. Do NOT fix an error by removing functionality.
 
-11. Every route must match its controller.
+11. Do NOT replace working implementations with dummy code.
 
-12. Every controller must match its model/service.
+12. Do NOT comment out broken code instead of fixing it.
 
-13. Do not remove working functionality just to make the
-    application run.
+13. Do NOT silently ignore any reported error.
 
-14. Do not introduce unnecessary dependencies.
+14. Do NOT create duplicate files.
 
-15. Do not modify dependency/configuration files unless
-    the reported error actually requires it.
+15. Do NOT rename files unless absolutely necessary.
+
+16. Every local import must resolve to an existing file.
+
+17. Every imported function/component must actually be exported.
+
+18. Every frontend API call must correspond to an appropriate
+    backend route when a backend exists.
+
+19. Every backend route must use an existing controller function.
+
+20. Every controller must use the appropriate existing
+    persistence/model/service layer.
+
+21. Preserve the architecture defined by the Architect Agent.
+
+22. Preserve existing functionality whenever possible.
+
+23. Do NOT introduce unnecessary dependencies.
+
+24. Do NOT modify package/configuration files unless the
+    reported error actually requires the change.
+
+25. If a reported error is already fixed by another modification,
+    do not make an additional unnecessary change.
+
+==================================================
+ERROR PRIORITY
+==================================================
+
+When multiple errors are reported, use this priority:
+
+1. Syntax / parse errors
+2. Missing files
+3. Broken imports
+4. Missing exports
+5. Dependency errors
+6. Route/controller mismatches
+7. Frontend route/navigation mismatches
+8. API/frontend-backend mismatches
+9. Runtime application errors
+10. Feature completeness errors
+11. Warnings
+
+Fix the root cause first.
+
+Do not blindly fix downstream errors that are caused by an
+earlier root-cause error.
+
+==================================================
+FINAL SELF-CHECK
+==================================================
+
+Before returning the result, verify:
+
+- Every reported error has been addressed.
+- No unrelated functionality was removed.
+- No duplicate files were created.
+- Every modified file contains complete source code.
+- Imports and exports are consistent.
+- Routes and controllers are consistent.
+- Frontend navigation and React routes are consistent.
+- Dependencies are consistent with actual imports.
+- The project architecture is preserved.
+
+Only after this verification should the modified files
+be returned.
 
 ==================================================
 INFRASTRUCTURE ERROR PROTECTION

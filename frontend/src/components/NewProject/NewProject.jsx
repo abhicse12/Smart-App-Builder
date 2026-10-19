@@ -49,56 +49,53 @@ function NewProject({ onClose, onProjectCreated }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.name.trim()) {
-      alert("Please enter project name");
-      return;
-    }
+  if (!formData.name.trim()) {
+    alert("Please enter project name");
+    return;
+  }
 
-    if (formData.techStack.length === 0) {
-      alert("Please select at least one technology");
-      return;
-    }
+  if (formData.techStack.length === 0) {
+    alert("Please select at least one technology");
+    return;
+  }
 
-    try {
-      const response = await fetch(
-        "http://localhost:5000/api/projects",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: formData.name.trim(),
-            description: "",
-            techStack: formData.techStack,
-            status: "active",
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to create project"
-        );
+  try {
+    const response = await fetch(
+      "http://localhost:5000/api/projects",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          description: "",
+          techStack: formData.techStack,
+          status: "active",
+        }),
       }
+    );
 
-      // Update dashboard project list
-      onProjectCreated(data.project);
+    const data = await response.json();
 
-      // Close modal
-      onClose();
-
-      // Automatically open Project Details page
-      navigate(`/projects/${data.project._id}`);
-    } catch (error) {
-      console.error("Create Project Error:", error);
-      alert(error.message);
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Failed to create project"
+      );
     }
-  };
+
+    onProjectCreated(data.project);
+    onClose();
+
+    navigate(`/projects/${data.project._id}`);
+  } catch (error) {
+    console.error("Create Project Error:", error);
+    alert(error.message);
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">

@@ -19,6 +19,10 @@ const DOCUMENTS_DIR = path.join(
 const CHUNK_SIZE = 1200;
 const CHUNK_OVERLAP = 200;
 
+/* ==================================================
+   CHUNK TEXT
+================================================== */
+
 const chunkText = (
   text,
   chunkSize = CHUNK_SIZE,
@@ -52,10 +56,88 @@ const chunkText = (
   return chunks;
 };
 
+/* ==================================================
+   GET ALL MARKDOWN FILES RECURSIVELY
+================================================== */
+
+const getMarkdownFiles = async (directory) => {
+  const entries = await fs.readdir(
+    directory,
+    {
+      withFileTypes: true,
+    }
+  );
+
+  const files = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(
+      directory,
+      entry.name
+    );
+
+    if (entry.isDirectory()) {
+      const nestedFiles =
+        await getMarkdownFiles(fullPath);
+
+      files.push(...nestedFiles);
+    } else if (
+      entry.isFile() &&
+      entry.name.endsWith(".md")
+    ) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+};
+
+/* ==================================================
+   EXTRACT DOCUMENT METADATA
+================================================== */
+
+const getDocumentMetadata = (
+  filePath
+) => {
+  const relativePath = path
+    .relative(
+      DOCUMENTS_DIR,
+      filePath
+    )
+    .replace(/\\/g, "/");
+
+  const parts = relativePath.split("/");
+
+  const fileName =
+    parts[parts.length - 1];
+
+  const fileNameWithoutExtension =
+    fileName.replace(/\.md$/, "");
+
+  let category = "common";
+  let technology = "common";
+
+  if (parts.length >= 2) {
+    category = parts[0];
+    technology =
+      fileNameWithoutExtension;
+  }
+
+  return {
+    relativePath,
+    category,
+    technology,
+  };
+};
+
+/* ==================================================
+   CONNECT DATABASE
+================================================== */
+
 const connectDB = async () => {
   if (!process.env.MONGO_URI) {
     throw new Error(
-        "MONGO_URI is not loaded"
+      "MONGO_URI is not loaded"
     );
   }
 
@@ -68,6 +150,10 @@ const connectDB = async () => {
   );
 };
 
+/* ==================================================
+   INDEX KNOWLEDGE BASE
+================================================== */
+
 const indexKnowledgeBase = async () => {
   try {
     await connectDB();
@@ -76,20 +162,34 @@ const indexKnowledgeBase = async () => {
       "\nReading knowledge documents..."
     );
 
-    const files = await fs.readdir(
-      DOCUMENTS_DIR
-    );
+    /* ----------------------------------------------
+       Find markdown files recursively
+    ---------------------------------------------- */
 
-    const markdownFiles = files.filter(
-      (file) => file.endsWith(".md")
-    );
+    const markdownFiles =
+      await getMarkdownFiles(
+        DOCUMENTS_DIR
+      );
 
     console.log(
-      "Documents found:",
-      markdownFiles
+      "\nDocuments found:"
     );
 
-    // Remove old knowledge chunks
+    for (const filePath of markdownFiles) {
+      const metadata =
+        getDocumentMetadata(
+          filePath
+        );
+
+      console.log(
+        `- ${metadata.relativePath}`
+      );
+    }
+
+    /* ----------------------------------------------
+       Remove old knowledge chunks
+    ---------------------------------------------- */
+
     await KnowledgeChunk.deleteMany({});
 
     console.log(
@@ -98,22 +198,32 @@ const indexKnowledgeBase = async () => {
 
     let totalChunks = 0;
 
-    for (const fileName of markdownFiles) {
-      const filePath = path.join(
-        DOCUMENTS_DIR,
-        fileName
-      );
+    /* ----------------------------------------------
+       Process every document
+    ---------------------------------------------- */
 
-      const content = await fs.readFile(
-        filePath,
-        "utf-8"
-      );
+    for (const filePath of markdownFiles) {
+      const content =
+        await fs.readFile(
+          filePath,
+          "utf-8"
+        );
 
-      const chunks = chunkText(content);
+      const chunks =
+        chunkText(content);
+
+      const metadata =
+        getDocumentMetadata(
+          filePath
+        );
 
       console.log(
-        `\n${fileName}: ${chunks.length} chunks`
+        `\n${metadata.relativePath}: ${chunks.length} chunks`
       );
+
+      /* --------------------------------------------
+         Generate embeddings
+      -------------------------------------------- */
 
       for (
         let i = 0;
@@ -123,7 +233,7 @@ const indexKnowledgeBase = async () => {
         const chunk = chunks[i];
 
         console.log(
-          `Embedding ${fileName} - chunk ${
+          `Embedding ${metadata.relativePath} - chunk ${
             i + 1
           }/${chunks.length}`
         );
@@ -134,11 +244,21 @@ const indexKnowledgeBase = async () => {
           );
 
         await KnowledgeChunk.create({
-          source: fileName,
+          source:
+            metadata.relativePath,
+
           content: chunk,
+
           embedding,
+
           metadata: {
             chunkIndex: i,
+
+            category:
+              metadata.category,
+
+            technology:
+              metadata.technology,
           },
         });
 
@@ -147,7 +267,12 @@ const indexKnowledgeBase = async () => {
     }
 
     console.log(
-      `\n✅ Knowledge base indexed successfully!`
+      "\n✅ Knowledge base indexed successfully!"
+    );
+
+    console.log(
+      "Total documents:",
+      markdownFiles.length
     );
 
     console.log(

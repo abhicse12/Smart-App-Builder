@@ -34,16 +34,11 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
+    // Signup ke baad direct authentication nahi karni
+    // User ko Login page par bhejna hai
     res.status(201).json({
       success: true,
       message: "User registered successfully",
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -102,10 +97,17 @@ export const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // JWT ko HttpOnly Cookie mein store karo
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false, // localhost ke liye false
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -153,6 +155,32 @@ export const getMe = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to get user",
+    });
+  }
+};
+
+// ==============================
+// LOGOUT
+// ==============================
+
+export const logout = async (req, res) => {
+  try {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: false, // localhost
+      sameSite: "lax",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Logout successful",
+    });
+  } catch (error) {
+    console.error("Logout Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Logout failed",
     });
   }
 };

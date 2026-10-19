@@ -2,16 +2,15 @@ import jwt from "jsonwebtoken";
 
 const authMiddleware = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    // JWT HttpOnly cookie se lo
+    const token = req.cookies.token;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
       });
     }
-
-    const token = authHeader.split(" ")[1];
 
     const decoded = jwt.verify(
       token,

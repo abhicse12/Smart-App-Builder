@@ -21,9 +21,11 @@ const writeProjectFiles = async (projectId, files) => {
       continue;
     }
 
+    const normalizedPath = file.path.replace(/\\/g, "/");
+
     const filePath = path.resolve(
       projectRoot,
-      file.path
+      normalizedPath
     );
 
     // Security: prevent path traversal
@@ -36,10 +38,39 @@ const writeProjectFiles = async (projectId, files) => {
       );
     }
 
-    await fs.mkdir(
-      path.dirname(filePath),
-      { recursive: true }
-    );
+    await fs.mkdir(path.dirname(filePath), {
+      recursive: true,
+    });
+
+    /*
+     * Runtime application data must never be overwritten
+     * when project source files are synchronized.
+     *
+     * Example:
+     * data/users.json
+     * data/patients.json
+     * data/nurses.json
+     * data/hospitals.json
+     * data/bills.json
+     */
+    const isRuntimeDataFile =
+      normalizedPath.startsWith("data/") &&
+      normalizedPath.endsWith(".json");
+
+    if (isRuntimeDataFile) {
+      try {
+        await fs.access(filePath);
+
+        console.log(
+          `Skipping existing runtime data file: ${normalizedPath}`
+        );
+
+        continue;
+      } catch {
+        // File does not exist.
+        // Create initial demo data.
+      }
+    }
 
     await fs.writeFile(
       filePath,

@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import validateProject from "./services/validatorService.js";
 
-const projectId = "6aa31f95767d915bbe06cf07";
+const projectId = "6ad08b1c76b045af7830d392";
 
 const projectPath = path.join(
   process.cwd(),

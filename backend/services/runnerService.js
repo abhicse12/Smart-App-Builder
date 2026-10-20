@@ -450,7 +450,175 @@ const detectProjectType = (projectRoot) => {
     return "static";
   }
 
+  // Basic console programs
+  if (fs.existsSync(path.join(projectRoot, "main.py"))) {
+    return "python";
+  }
+
+  if (fs.existsSync(path.join(projectRoot, "src", "Main.java"))) {
+    return "java";
+  }
+
   return "unknown";
+};
+
+// =====================================
+// Console projects (Python / Java)
+// =====================================
+
+// Like runCommand, but a non-zero exit code is a result, not an error
+const runToCompletion = (command, args, timeoutMs) =>
+  new Promise((resolve) => {
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: timeoutMs,
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          exitCode: error ? (typeof error.code === "number" ? error.code : 1) : 0,
+          output: [stdout, stderr]
+            .map((text) => String(text || "").trimEnd())
+            .filter(Boolean)
+            .join("\n"),
+          killed: Boolean(error?.killed),
+        });
+      }
+    );
+  });
+
+const CONSOLE_RUNTIMES = {
+  python: {
+    image: "python:3.12-slim",
+    label: "Python program",
+    memory: "256m",
+    pids: "64",
+    env: ["PYTHONDONTWRITEBYTECODE=1", "PYTHONUNBUFFERED=1"],
+    program: "timeout 15 python main.py < /dev/null",
+    // Tests are optional at run time (the validator requires them)
+    tests:
+      "if [ -d tests ]; then timeout 30 python -m unittest discover -s tests -v < /dev/null; else echo 'No tests folder'; fi",
+  },
+  java: {
+    image: "eclipse-temurin:21-jdk",
+    label: "Java program",
+    memory: "512m",
+    pids: "256",
+    env: [],
+    compile: "mkdir -p /tmp/out && javac -d /tmp/out $(find src -name '*.java')",
+    program: "timeout 15 java -cp /tmp/out Main < /dev/null",
+    tests:
+      "if [ -f src/TestRunner.java ]; then timeout 30 java -ea -cp /tmp/out TestRunner < /dev/null; else echo 'No TestRunner'; fi",
+  },
+};
+
+const describeExit = (result) =>
+  result.exitCode === 124 || result.killed
+    ? "timed out (infinite loop, or waiting for keyboard input although stdin is not a terminal)"
+    : `exited with code ${result.exitCode}`;
+
+const runConsoleProject = async ({
+  projectId,
+  projectRoot,
+  projectType,
+  containerName,
+}) => {
+  const runtime = CONSOLE_RUNTIMES[projectType];
+
+  console.log(`Running ${runtime.label} in ${runtime.image}...`);
+
+  // One short-lived, locked-down container per step: no network,
+  // read-only project files, writable /tmp only
+  const dockerRun = (step, script) =>
+    runToCompletion(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "--name",
+        `${containerName}-${step}`,
+        "--network",
+        "none",
+        "--memory",
+        runtime.memory,
+        "--cpus",
+        "1",
+        "--pids-limit",
+        runtime.pids,
+        "--security-opt",
+        "no-new-privileges",
+        "--cap-drop=ALL",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:exec",
+        ...runtime.env.flatMap((variable) => ["-e", variable]),
+        "-v",
+        `${projectRoot}:/app:ro`,
+        "-w",
+        "/app",
+        runtime.image,
+        "sh",
+        "-c",
+        script,
+      ],
+      120000
+    );
+
+  const withCompile = (script) =>
+    runtime.compile ? `${runtime.compile} && ${script}` : script;
+
+  const program = await dockerRun("run", withCompile(runtime.program));
+
+  console.log(
+    `${runtime.label} ${describeExit(program)}`
+  );
+
+  if (program.exitCode !== 0) {
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: runtime.label,
+        healthError: `${runtime.label} ${describeExit(program)} when run without a keyboard (stdin is /dev/null)`,
+        dockerLogs: program.output.slice(-6000),
+      })
+    );
+  }
+
+  const tests = await dockerRun("tests", withCompile(runtime.tests));
+
+  console.log(`${runtime.label} tests ${describeExit(tests)}`);
+
+  if (tests.exitCode !== 0) {
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: `${runtime.label} tests`,
+        healthError: `Tests ${describeExit(tests)}; fix the program logic or the failing test`,
+        dockerLogs: tests.output.slice(-6000),
+      })
+    );
+  }
+
+  console.log(`✅ ${runtime.label} and its tests ran successfully!`);
+
+  return {
+    success: true,
+    projectId,
+    containerName,
+    projectType,
+    console: {
+      output: program.output.slice(-20000),
+      exitCode: program.exitCode,
+      tests: {
+        passed: true,
+        output: tests.output.slice(-20000),
+      },
+    },
+    status: "completed",
+  };
 };
 
 // =====================================
@@ -563,6 +731,19 @@ const runProject = async (projectId) => {
     ]);
   } catch {
     // Container does not exist
+  }
+
+  // =====================================
+  // PYTHON / JAVA CONSOLE PROJECT
+  // =====================================
+
+  if (projectType === "python" || projectType === "java") {
+    return runConsoleProject({
+      projectId,
+      projectRoot,
+      projectType,
+      containerName,
+    });
   }
 
   // =====================================

@@ -4,6 +4,10 @@ import {
   usesApiConventions,
 } from "./generationContract.js";
 import { UI_DESIGN_RULES } from "./uiDesignRules.js";
+import {
+  consoleFixerRules,
+  detectConsoleLanguageFromFiles,
+} from "./consoleProject.js";
 
 const modifyProject = async ({
   projectName,
@@ -46,6 +50,13 @@ working code only to match them.
 `
     : "";
 
+  // Basic Python / Java programs keep their layout and sandbox rules
+  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+
+  const consoleSection = consoleLanguage
+    ? consoleFixerRules(consoleLanguage)
+    : "";
+
   const modificationPrompt = `
 You are a SURGICAL CODE MODIFICATION AGENT.
 
@@ -79,6 +90,7 @@ ${userRequest}
 ${uiChange ? UI_DESIGN_RULES : ""}
 ${knownProblemsSection}
 ${conventionsSection}
+${consoleSection}
 
 ==================================================
 EXISTING PROJECT

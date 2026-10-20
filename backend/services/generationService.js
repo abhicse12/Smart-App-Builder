@@ -7,6 +7,10 @@ import generateProjectFiles from "./fileGenerationService.js";
 import runAuthSmokeTest from "./authSmokeTest.js";
 import { extractBackendEndpoints } from "./validators/apiContractValidator.js";
 import { summarizeExports } from "./validators/moduleExportsValidator.js";
+import {
+  getConsoleLanguage,
+  summarizeConsoleModules,
+} from "./consoleProject.js";
 
 const BATCH_SIZE = 4;
 
@@ -129,6 +133,9 @@ const generateApp = async (
     ? architecture.apiContract
     : [];
 
+  // "python" / "java" for basic console programs, otherwise null
+  const consoleLanguage = getConsoleLanguage(techStack);
+
   console.log(
     "API contract endpoints:",
     apiContract.length
@@ -191,8 +198,11 @@ const generateApp = async (
             extractBackendEndpoints(generatedFiles).endpoints,
 
           // Exports of files generated in earlier batches
-          generatedModules:
-            summarizeExports(generatedFiles),
+          generatedModules: consoleLanguage
+            ? summarizeConsoleModules(generatedFiles, consoleLanguage)
+            : summarizeExports(generatedFiles),
+
+          consoleLanguage,
         });
 
       if (

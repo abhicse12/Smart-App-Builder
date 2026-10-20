@@ -733,7 +733,13 @@ export const modifyProject = async (req, res) => {
 
     // UI requests get the design system and may only restyle
     // presentational frontend files
-    const uiChange = isUiRequest(userRequest);
+    const hasWebUi = (project.files || []).some((file) =>
+      /^frontend\/|(^|\/)index\.html$/.test(
+        String(file.path || "").replace(/\\/g, "/")
+      )
+    );
+
+    const uiChange = hasWebUi && isUiRequest(userRequest);
 
     if (uiChange) {
       console.log("UI modification: applying the UI design system");

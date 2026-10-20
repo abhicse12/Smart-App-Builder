@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/api";
+import { getConsoleLanguage, languageLabel } from "@/lib/projectType";
 
 function NewProject({ onClose, onProjectCreated }) {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ function NewProject({ onClose, onProjectCreated }) {
     "MySQL",
     "PostgreSQL",
     "Python",
+    "Java",
   ];
 
   const handleNameChange = (e) => {
@@ -192,6 +194,15 @@ function NewProject({ onClose, onProjectCreated }) {
                 );
               })}
             </div>
+
+            {/* Python-only / Java-only stacks build a terminal program */}
+            {getConsoleLanguage(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                {languageLabel(getConsoleLanguage(formData.techStack))} only:
+                a basic console program (runs in the terminal, with tests).
+                Add web technologies like React or HTML for a web app.
+              </p>
+            )}
 
             {/* Selected Technologies */}
             {formData.techStack.length > 0 && (

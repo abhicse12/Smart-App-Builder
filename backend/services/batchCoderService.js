@@ -5,6 +5,7 @@ import {
   formatApiContract,
   usesApiConventions,
 } from "./generationContract.js";
+import { buildConsoleCoderPrompt } from "./consoleProject.js";
 
 const generateBatchCode = async ({
   projectName,
@@ -15,7 +16,22 @@ const generateBatchCode = async ({
   apiContract = [],
   implementedEndpoints = [],
   generatedModules = [],
+  consoleLanguage = null,
 }) => {
+  // Basic Python / Java console program: its own short prompt, no RAG
+  if (consoleLanguage) {
+    return generateWithAI(
+      buildConsoleCoderPrompt({
+        language: consoleLanguage,
+        projectName,
+        description,
+        files,
+        allFiles,
+        generatedModules,
+      })
+    );
+  }
+
   // Shared API contract for Express + Vite projects. Backend files are
   // generated first, so frontend batches see the routes that really exist.
   const contractSection = usesApiConventions(techStack)

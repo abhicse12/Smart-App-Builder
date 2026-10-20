@@ -2,6 +2,10 @@ import generateWithAI from "./aiService.js";
 import retrieveRelevantKnowledge from "./retrievalService.js";
 import loadArchitectureRules from "./architectureRulesService.js";
 import {
+  buildConsoleArchitectPrompt,
+  getConsoleLanguage,
+} from "./consoleProject.js";
+import {
   API_CONVENTIONS,
   usesApiConventions,
 } from "./generationContract.js";
@@ -10,6 +14,19 @@ const createProjectArchitecture = async (
   prompt,
   techStack = []
 ) => {
+  // Python-only / Java-only stacks: a basic console program, not a web app
+  const consoleLanguage = getConsoleLanguage(techStack);
+
+  if (consoleLanguage) {
+    console.log(
+      `Console project (${consoleLanguage}): using the basic program architect`
+    );
+
+    return generateWithAI(
+      buildConsoleArchitectPrompt(prompt, consoleLanguage)
+    );
+  }
+
   // ==================================================
   // SELECTED TECHNOLOGY STACK
   // ==================================================

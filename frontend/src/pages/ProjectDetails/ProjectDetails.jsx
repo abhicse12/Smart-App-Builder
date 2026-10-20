@@ -16,10 +16,12 @@ import {
   Play,
   ExternalLink,
   Loader2,
+  Terminal,
   FileCode2,
   FolderOpen,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
+import { getConsoleLanguage, languageLabel } from "@/lib/projectType";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -42,6 +44,8 @@ function ProjectDetails() {
   const [isRunning, setIsRunning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [runError, setRunError] = useState("");
+  // Output of a Python / Java console program run
+  const [consoleResult, setConsoleResult] = useState(null);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -116,6 +120,7 @@ function ProjectDetails() {
       setIsRunning(true);
       setRunError("");
       setPreviewUrl("");
+      setConsoleResult(null);
 
       const response = await fetch(
         `${API_BASE_URL}/api/projects/${id}/run`,
@@ -131,6 +136,15 @@ function ProjectDetails() {
         throw new Error(
           data.message || "Failed to run project"
         );
+      }
+
+      // Console programs return their output instead of a preview URL
+      if (data?.runner?.console) {
+        setConsoleResult({
+          language: data.runner.projectType,
+          ...data.runner.console,
+        });
+        return;
       }
 
       const url =
@@ -262,6 +276,8 @@ function ProjectDetails() {
     );
   }
 
+  const consoleLanguage = getConsoleLanguage(project.techStack);
+
   const statusTone =
     project.status === "validation_failed"
       ? "bg-destructive/10 text-destructive"
@@ -348,6 +364,7 @@ function ProjectDetails() {
             setIsGenerating={setIsGenerating}
             setAgentStep={setAgentStep}
             mode={files.length > 0 ? "modify" : "generate"}
+            consoleLanguage={consoleLanguage}
           />
         </div>
 
@@ -356,12 +373,13 @@ function ProjectDetails() {
 
           <div className="glass float-in rounded-2xl p-5" style={{ "--d": "60ms" }}>
             <h2 className="text-sm font-semibold text-foreground">
-              Run Project
+              {consoleLanguage ? "Run Program" : "Run Project"}
             </h2>
 
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Start the generated application inside
-              the Docker sandbox.
+              {consoleLanguage
+                ? `Run the ${languageLabel(consoleLanguage)} program and its tests inside the Docker sandbox.`
+                : "Start the generated application inside the Docker sandbox."}
             </p>
 
             <button
@@ -377,7 +395,7 @@ function ProjectDetails() {
               ) : (
                 <>
                   <Play className="size-4" />
-                  Run Project
+                  {consoleLanguage ? "Run Program" : "Run Project"}
                 </>
               )}
             </button>
@@ -401,6 +419,62 @@ function ProjectDetails() {
           />
         </div>
       </div>
+
+      {/* =========================================
+          Program Output (Python / Java console)
+      ========================================= */}
+
+      {consoleResult && (
+        <div className="glass float-in mt-6 overflow-hidden rounded-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className="btn-glow flex size-9 items-center justify-center rounded-xl">
+                <Terminal className="size-4 text-white" />
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Program Output
+                </h2>
+
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {languageLabel(consoleResult.language)} program run without
+                  keyboard input, so it shows its demo mode. Download the ZIP
+                  to use it interactively.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-success">
+                exit code {consoleResult.exitCode}
+              </span>
+
+              {consoleResult.tests?.passed && (
+                <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-success">
+                  tests passed
+                </span>
+              )}
+            </div>
+          </div>
+
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-100">
+            {consoleResult.output || "(the program printed nothing)"}
+          </pre>
+
+          {consoleResult.tests?.output && (
+            <details className="border-t border-border">
+              <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-foreground hover:bg-white/40 dark:hover:bg-white/5">
+                Test results
+              </summary>
+
+              <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap break-words bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-300">
+                {consoleResult.tests.output}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
 
       {/* =========================================
           Live Preview

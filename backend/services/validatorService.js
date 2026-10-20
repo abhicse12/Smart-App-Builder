@@ -5,6 +5,8 @@ import validateFeatureCompleteness from "./validators/featureValidator.js";
 import validateApiContract from "./validators/apiContractValidator.js";
 import validateModuleExports from "./validators/moduleExportsValidator.js";
 import validateDataFiles from "./validators/dataFilesValidator.js";
+import validateConsoleProject from "./validators/consoleValidator.js";
+import { detectConsoleLanguageFromFiles } from "./consoleProject.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -28,6 +30,25 @@ const validateProject = (project) => {
     errors,
     warnings,
   });
+
+  // Basic Python / Java console projects: none of the web checks apply
+  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+
+  if (consoleLanguage) {
+    validateConsoleProject({
+      files,
+      language: consoleLanguage,
+      errors,
+    });
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      totalFiles: files.length,
+      projectType: consoleLanguage,
+    };
+  }
 
   validateFeatureCompleteness({
     files,

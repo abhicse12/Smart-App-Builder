@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { API_BASE_URL } from "@/lib/api";
 
-function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
+function PromptBox({
+  setIsGenerating,
+  setAgentStep,
+  mode = "generate",
+  consoleLanguage = null,
+}) {
   const { id } = useParams();
 
   const [prompt, setPrompt] = useState("");
@@ -180,7 +185,17 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
           setPrompt(e.target.value)
         }
         disabled={loading}
-        placeholder={`Example:
+        placeholder={consoleLanguage ? `Example:
+
+Create a student grade management program.
+
+Requirements:
+- Add students with a name and roll number
+- Record marks for 5 subjects
+- Calculate total, average and grade (A to F)
+- Show a ranked report of all students
+- Search for a student by roll number
+- Save and load the data from a file` : `Example:
 
 Create a library management application.
 

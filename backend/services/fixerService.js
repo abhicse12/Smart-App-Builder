@@ -3,6 +3,10 @@ import {
   API_CONVENTIONS,
   usesApiConventions,
 } from "./generationContract.js";
+import {
+  consoleFixerRules,
+  detectConsoleLanguageFromFiles,
+} from "./consoleProject.js";
 
 const fixProject = async ({
   projectName,
@@ -22,6 +26,13 @@ fields, token transport, ids, auth state), change the side that breaks
 these conventions. If both sides break them, update both so they meet
 the conventions.
 `
+    : "";
+
+  // Basic Python / Java programs: keep their layout and sandbox rules
+  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+
+  const consoleSection = consoleLanguage
+    ? consoleFixerRules(consoleLanguage)
     : "";
 
   const fixerPrompt = `
@@ -62,6 +73,7 @@ ${errors
   .join("\n")}
 
 ${conventionsSection}
+${consoleSection}
 
 ==================================================
 CURRENT PROJECT FILES

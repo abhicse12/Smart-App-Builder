@@ -4,6 +4,7 @@ import { WandSparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE_URL } from "@/lib/api";
 
 function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
   const { id } = useParams();
@@ -34,8 +35,26 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 
     console.log("Starting application generation...");
 
+    // Modify uses the protected project modify endpoint.
+    // New generation keeps using /api/generate.
+    const isModify = mode === "modify";
+
+    const url = isModify
+      ? `${API_BASE_URL}/api/projects/${id}/modify`
+      : `${API_BASE_URL}/api/generate`;
+
+    const body = isModify
+      ? {
+          userRequest: prompt.trim(),
+        }
+      : {
+          projectId: id,
+          prompt: prompt.trim(),
+          mode: mode,
+        };
+
     const response = await fetch(
-      "http://localhost:5000/api/generate",
+      url,
       {
         method: "POST",
 
@@ -46,11 +65,7 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         // HttpOnly cookie automatically send hogi
         credentials: "include",
 
-        body: JSON.stringify({
-          projectId: id,
-          prompt: prompt.trim(),
-          mode: mode,
-        }),
+        body: JSON.stringify(body),
       }
     );
 
@@ -109,7 +124,8 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         "Something went wrong while generating the application."
     );
 
-    setAgentStep(0);
+    // back to idle
+    setAgentStep(-1);
 
   } finally {
     setLoading(false);
@@ -169,16 +185,14 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         disabled={loading}
         placeholder={`Example:
 
-Create a patient management application for a healthcare company.
+Create a library management application.
 
 Requirements:
-- Admin can add, update and delete patients
-- Admin can add and manage nurses
-- Store patient and nurse information in MongoDB
-- Calculate billing based on number of days
-- Include authentication
-- Provide a dashboard with patient, nurse and billing statistics
-- Use React, Node.js, Express and MongoDB
+- Users can sign up, log in and log out
+- Users can add, edit and delete books
+- Each book has a title, author, genre and status (available / borrowed)
+- Search books by title and filter by genre or status
+- Provide a dashboard with total, available and borrowed books
 - Create a clean and responsive UI`}
         className="resize-none border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
       />

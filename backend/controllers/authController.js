@@ -2,22 +2,65 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+// bcrypt only uses the first 72 bytes; cap length to avoid abuse
+const MAX_PASSWORD_LENGTH = 128;
+
+const isNonEmptyString = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+// Auth cookie attributes shared by login and logout. `secure` (HTTPS
+// only) is enabled in production; local development runs on http.
+const authCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+});
+
 // ==============================
 // SIGNUP
 // ==============================
 
 export const signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    // req.body is undefined in Express 5 when the request is not JSON
+    const { name, email, password } = req.body ?? {};
 
-    if (!name || !email || !password) {
+    if (
+      !isNonEmptyString(name) ||
+      !isNonEmptyString(email) ||
+      typeof password !== "string" ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message: "Name, email and password are required",
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!EMAIL_PATTERN.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address",
+      });
+    }
+
+    if (
+      password.length < MIN_PASSWORD_LENGTH ||
+      password.length > MAX_PASSWORD_LENGTH
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`,
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
 
     if (existingUser) {
       return res.status(409).json({
@@ -29,8 +72,8 @@ export const signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
     });
 
@@ -61,16 +104,23 @@ export const signup = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
 
-    if (!email || !password) {
+    // Strings only: rejects objects such as {"$gt": ""}
+    if (
+      !isNonEmptyString(email) ||
+      typeof password !== "string" ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -99,9 +149,7 @@ export const login = async (req, res) => {
 
     // JWT ko HttpOnly Cookie mein store karo
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: false, // localhost ke liye false
-      sameSite: "lax",
+      ...authCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -165,11 +213,8 @@ export const getMe = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: false, // localhost
-      sameSite: "lax",
-    });
+    // Same attributes as when the cookie was set, or it is not removed
+    res.clearCookie("token", authCookieOptions());
 
     res.status(200).json({
       success: true,

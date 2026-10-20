@@ -1,5 +1,6 @@
 import KnowledgeChunk from "../models/KnowledgeChunk.js";
 import { generateQueryEmbedding } from "./embeddingService.js";
+import { detectTechAreas } from "./techStackMatcher.js";
 
 /* ==================================================
    COSINE SIMILARITY
@@ -27,104 +28,12 @@ const cosineSimilarity = (vectorA, vectorB) => {
 };
 
 /* ==================================================
-   NORMALIZE TECHNOLOGY STACK
-================================================== */
-
-const normalizeTechStack = (techStack = []) => {
-  return techStack.map((tech) =>
-    tech.toLowerCase().trim()
-  );
-};
-
-/* ==================================================
    GET ALLOWED TECHNOLOGIES
+   (same matching as the architecture rules loader)
 ================================================== */
 
-const getAllowedTechnologies = (techStack = []) => {
-  const normalizedStack =
-    normalizeTechStack(techStack);
-
-  const allowed = new Set();
-
-  /* ----------------------------------------------
-     Common knowledge is always allowed
-  ---------------------------------------------- */
-
-  allowed.add("common");
-
-  /* ----------------------------------------------
-     Static HTML/CSS/JavaScript
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("html") &&
-    normalizedStack.includes("css") &&
-    normalizedStack.includes("javascript") &&
-    !normalizedStack.includes("react")
-  ) {
-    allowed.add("static-web");
-  }
-
-  /* ----------------------------------------------
-     React
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("react") ||
-    normalizedStack.includes("vite")
-  ) {
-    allowed.add("react-vite");
-  }
-
-  /* ----------------------------------------------
-     Node.js / Express
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("node.js") ||
-    normalizedStack.includes("node") ||
-    normalizedStack.includes("express")
-  ) {
-    allowed.add("node-express");
-  }
-
-  /* ----------------------------------------------
-     MERN
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("mern")
-  ) {
-    allowed.add("mern");
-    allowed.add("react-vite");
-    allowed.add("node-express");
-  }
-
-  /* ----------------------------------------------
-     Python FastAPI
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("python") ||
-    normalizedStack.includes("fastapi")
-  ) {
-    allowed.add("python-fastapi");
-  }
-
-  /* ----------------------------------------------
-     Java Spring Boot
-  ---------------------------------------------- */
-
-  if (
-    normalizedStack.includes("java") ||
-    normalizedStack.includes("spring boot") ||
-    normalizedStack.includes("springboot")
-  ) {
-    allowed.add("java-springboot");
-  }
-
-  return allowed;
-};
+const getAllowedTechnologies = (techStack = []) =>
+  new Set(["common", ...detectTechAreas(techStack)]);
 
 /* ==================================================
    TECHNOLOGY RELEVANCE

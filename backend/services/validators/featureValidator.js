@@ -1,6 +1,73 @@
 const normalizePath = (filePath = "") =>
   String(filePath).replace(/\\/g, "/");
 
+// Remove /* */ and // comments ("://" in URLs is kept)
+const stripComments = (code = "") =>
+  code
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/(^|[^:"'`\\])\/\/.*$/gm, "$1");
+
+// A string literal containing an auth endpoint path,
+// e.g. "/api/auth/login", '/login', `${API}/auth/register`
+const authEndpointPattern = (actions) =>
+  new RegExp(
+    `["'\`][^"'\`\\n]*\\/(?:auth\\/)?(?:${actions})\\b[^"'\`\\n]*["'\`]`,
+    "i"
+  );
+
+const LOGIN_REQUEST = authEndpointPattern("login|signin");
+const SIGNUP_REQUEST = authEndpointPattern("signup|register");
+
+// Token / session / cookie / logout handling
+const AUTH_STATE_HANDLING = [
+  /(localStorage|sessionStorage)\s*\.\s*(get|set|remove)Item\s*\(\s*["'`][^"'`]*(token|auth|user|session)/i,
+  /Authorization["'`]?\s*[:,]\s*[`"']?\s*Bearer/i,
+  /withCredentials\s*:\s*true/,
+  /credentials\s*:\s*["'`]include["'`]/,
+  /\blogout\s*[:=(]|function\s+logout\b/i,
+];
+
+// Auth context / provider / hook implementation
+const AUTH_STATE_IMPLEMENTATION = [
+  /createContext\s*(?:<[\s\S]*?>)?\s*\(/,
+  /\b(function|const|let|var|class)\s+AuthProvider\b/,
+  /\b(function|const|let|var)\s+useAuth\b/,
+];
+
+const isFrontendAuthImplementation = (content) => {
+  const code = stripComments(content);
+
+  const hasLoginRequest = LOGIN_REQUEST.test(code);
+  const hasSignupRequest = SIGNUP_REQUEST.test(code);
+
+  const hasStateHandling = AUTH_STATE_HANDLING.some(
+    (pattern) => pattern.test(code)
+  );
+
+  // A. Auth service / API module
+  if (
+    hasLoginRequest &&
+    (hasSignupRequest || hasStateHandling)
+  ) {
+    return true;
+  }
+
+  // B. Auth context / provider / hook that manages
+  //    login, user or token state
+  const hasStateImplementation =
+    AUTH_STATE_IMPLEMENTATION.some((pattern) =>
+      pattern.test(code)
+    ) &&
+    /\bAuth(Context|Provider)\b|\buseAuth\b|\bauth\b/i.test(
+      code
+    );
+
+  return (
+    hasStateImplementation &&
+    /\b(login|signin|user|token)\b/i.test(code)
+  );
+};
+
 const validateAuthentication = ({
   filePaths,
   fileMap,
@@ -106,18 +173,32 @@ const validateAuthentication = ({
   }
 
   // ==========================================
-  // Auth state
+  // Auth state / service
+  //
+  // Detected from file content, not file name.
+  // Login/Signup page files are excluded so that
+  // pages alone do not satisfy this check.
   // ==========================================
 
-  const hasAuthContext = filePaths.some((path) =>
-    /AuthContext\.(jsx|tsx|js|ts)$/i.test(path)
+  const hasFrontendAuthImplementation = filePaths.some(
+    (path) => {
+      if (
+        !/\.(jsx|tsx|js|ts)$/i.test(path) ||
+        /(^|\/)backend\//i.test(path) ||
+        /(^|\/)node_modules\//i.test(path) ||
+        path === loginPage ||
+        path === signupPage
+      ) {
+        return false;
+      }
+
+      return isFrontendAuthImplementation(
+        fileMap.get(path) || ""
+      );
+    }
   );
 
-  const hasAuthService = filePaths.some((path) =>
-    /auth(Service|Api|API)?\.(jsx|tsx|js|ts)$/i.test(path)
-  );
-
-  if (!hasAuthContext && !hasAuthService) {
+  if (!hasFrontendAuthImplementation) {
     errors.push(
       "Authentication feature is incomplete: frontend authentication state/service is missing."
     );

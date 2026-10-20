@@ -1,7 +1,7 @@
 import generateApp from "../services/generationService.js";
 import generateProjectFiles from "../services/fileGenerationService.js";
-import modifyProject from "../services/modifyProjectService.js";
 import Project from "../models/Project.js";
+import { errorDetails } from "../utils/errorResponse.js";
 
 export const generateProject = async (req, res) => {
   try {
@@ -26,7 +26,10 @@ export const generateProject = async (req, res) => {
     // 2. Find existing project
     // ==========================================
 
-    const project = await Project.findById(projectId);
+    const project = await Project.findOne({
+      _id: projectId,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -45,121 +48,16 @@ export const generateProject = async (req, res) => {
     console.log("=================================\n");
 
     // ==========================================
-    // 3. MODIFY EXISTING PROJECT
+    // 3. Modifications use the protected endpoint
+    //    (ownership, protected config/runtime-data
+    //    files, validation, restart)
     // ==========================================
 
     if (mode === "modify") {
-      console.log("✏️ Modifying existing project...");
-
-      const result = await modifyProject({
-        projectName: project.name,
-        description: project.description || "",
-        techStack,
-        files: project.files || [],
-        userRequest: prompt,
-      });
-
-      if (
-        !result ||
-        !Array.isArray(result.files)
-      ) {
-        return res.status(500).json({
-          success: false,
-          message: "Invalid modification response from AI",
-        });
-      }
-
-      console.log(
-        "Modified files:",
-        result.files.map((file) => file.path)
-      );
-
-      // ==========================================
-      // Merge modified files with existing files
-      // ==========================================
-
-      const fileMap = new Map(
-        (project.files || []).map((file) => [
-          file.path,
-          file,
-        ])
-      );
-
-      for (const modifiedFile of result.files) {
-        fileMap.set(
-          modifiedFile.path,
-          modifiedFile
-        );
-      }
-
-      const updatedFiles =
-        Array.from(fileMap.values());
-
-      // ==========================================
-      // Write modified files to disk
-      // ==========================================
-
-      console.log(
-        "📁 Writing modified files to disk..."
-      );
-
-      const projectFilesResult =
-        await generateProjectFiles(
-          projectId,
-          updatedFiles
-        );
-
-      console.log(
-        "✅ Modified files written to disk"
-      );
-
-      console.log(
-        "Project root:",
-        projectFilesResult.projectRoot
-      );
-
-      // ==========================================
-      // Save updated project
-      // ==========================================
-
-      project.files =
-        projectFilesResult.formattedFiles;
-
-      project.status = "modified";
-
-      await project.save();
-
-      console.log(
-        "✅ Existing project modified successfully"
-      );
-
-      // ==========================================
-      // Response
-      // ==========================================
-
-      return res.status(200).json({
-        success: true,
-
+      return res.status(400).json({
+        success: false,
         message:
-          "Project modified successfully",
-
-        projectId: project._id,
-
-        modifiedFiles:
-          result.files.map(
-            (file) => file.path
-          ),
-
-        projectPath:
-          projectFilesResult.projectRoot,
-
-        result: {
-          projectName: project.name,
-          description: project.description,
-          techStack: project.techStack,
-          files:
-            projectFilesResult.formattedFiles,
-        },
+          "Use POST /api/projects/:id/modify to modify an existing project",
       });
     }
 
@@ -183,10 +81,50 @@ export const generateProject = async (req, res) => {
       result.validation &&
       !result.validation.valid
     ) {
+      // Keep the generated code instead of discarding it, so it
+      // can be reviewed, downloaded or repaired with a modify request.
+      let savedFiles = (result.files || []).filter(
+        (file) =>
+          file &&
+          typeof file.path === "string" &&
+          typeof file.content === "string"
+      );
+
+      try {
+        const projectFilesResult =
+          await generateProjectFiles(
+            projectId,
+            savedFiles
+          );
+
+        savedFiles =
+          projectFilesResult.formattedFiles;
+      } catch (writeError) {
+        console.error(
+          "Could not write files of failed generation to disk:",
+          writeError.message
+        );
+      }
+
+      if (!project.description) {
+        project.description =
+          result.description;
+      }
+
+      project.files = savedFiles;
+
+      project.status = "validation_failed";
+
+      await project.save();
+
       return res.status(400).json({
         success: false,
         message:
-          "Generated project validation failed",
+          "Generated project validation failed. The generated files were saved so you can review or modify them.",
+
+        projectId: project._id,
+
+        filesSaved: savedFiles.length,
 
         validation:
           result.validation,
@@ -200,14 +138,21 @@ export const generateProject = async (req, res) => {
     // 6. Save generated project
     // ==========================================
 
-    project.name =
-      result.projectName;
+    // Keep the project name the user entered; the AI's
+    // projectName is not saved.
 
     project.description =
       result.description;
 
-    project.techStack =
-      result.techStack;
+    // Store the AI's (usually more detailed) tech stack, but
+    // never replace the user's selection with an empty/invalid one
+    if (
+      Array.isArray(result.techStack) &&
+      result.techStack.length > 0
+    ) {
+      project.techStack =
+        result.techStack;
+    }
 
     project.files =
       result.formattedFiles;
@@ -241,8 +186,6 @@ export const generateProject = async (req, res) => {
 
       projectId: project._id,
 
-      projectPath:
-        result.projectRoot,
 
       validation:
         result.validation,
@@ -252,13 +195,13 @@ export const generateProject = async (req, res) => {
 
       result: {
         projectName:
-          result.projectName,
+          project.name,
 
         description:
-          result.description,
+          project.description,
 
         techStack:
-          result.techStack,
+          project.techStack,
 
         files:
           result.formattedFiles,
@@ -277,8 +220,7 @@ export const generateProject = async (req, res) => {
       message:
         "Failed to process application",
 
-      error:
-        error.message,
+      ...errorDetails(error),
     });
   }
 };

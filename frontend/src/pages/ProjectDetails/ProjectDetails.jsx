@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -25,7 +26,8 @@ function ProjectDetails() {
   const [loading, setLoading] = useState(true);
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [agentStep, setAgentStep] = useState(0);
+  // -1 = idle (no generation running), 0-3 = agent steps
+  const [agentStep, setAgentStep] = useState(-1);
 
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -42,7 +44,7 @@ function ProjectDetails() {
     const fetchProject = async () => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}`,
+      `${API_BASE_URL}/api/projects/${id}`,
       {
         method: "GET",
         credentials: "include",
@@ -68,7 +70,7 @@ function ProjectDetails() {
     const fetchProjectFiles = async () => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}/files`,
+      `${API_BASE_URL}/api/projects/${id}/files`,
       {
         method: "GET",
         credentials: "include",
@@ -113,7 +115,7 @@ function ProjectDetails() {
       setPreviewUrl("");
 
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/run`,
+        `${API_BASE_URL}/api/projects/${id}/run`,
         {
           method: "POST",
           credentials: "include",
@@ -185,14 +187,11 @@ function ProjectDetails() {
 
   const handleDownload = async () => {
   try {
-    const token = localStorage.getItem("token");
-
+    // Authentication uses the HttpOnly cookie, like every other request
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}/download`,
+      `${API_BASE_URL}/api/projects/${id}/download`,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       }
     );
 

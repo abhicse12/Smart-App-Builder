@@ -1,6 +1,10 @@
 import fs from "fs/promises";
 import path from "path";
 import prettier from "prettier";
+import {
+  isEnvFile,
+  stripUnreachableMongoUri,
+} from "./sandboxEnv.js";
 
 const FORMATTABLE_EXTENSIONS = new Set([
   ".js",
@@ -109,6 +113,19 @@ const generateProjectFiles = async (projectId, files) => {
       }
     } else {
       console.log(`Skipped formatting: ${file.path}`);
+    }
+
+    // Never write a MONGO_URI that cannot exist in the sandbox
+    // (e.g. mongodb://mongodb:27017); it breaks JSON demo mode.
+    if (isEnvFile(file.path)) {
+      const sanitized = stripUnreachableMongoUri(formattedContent);
+
+      if (sanitized.removedHosts.length > 0) {
+        console.warn(
+          `Removed sandbox-unreachable MONGO_URI (${sanitized.removedHosts.join(", ")}) from ${file.path}`
+        );
+        formattedContent = sanitized.content;
+      }
     }
 
     // Write file

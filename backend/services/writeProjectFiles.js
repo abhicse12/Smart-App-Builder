@@ -1,5 +1,9 @@
 import fs from "fs/promises";
 import path from "path";
+import {
+  isEnvFile,
+  stripUnreachableMongoUri,
+} from "./sandboxEnv.js";
 
 const writeProjectFiles = async (projectId, files) => {
   if (!projectId) {
@@ -47,15 +51,23 @@ const writeProjectFiles = async (projectId, files) => {
      * when project source files are synchronized.
      *
      * Example:
+     * backend/data/users.json
+     * backend/data/tasks.json
      * data/users.json
-     * data/patients.json
-     * data/nurses.json
-     * data/hospitals.json
-     * data/bills.json
      */
+
+    // Project-relative path with "/" separators
+    // (handles "\", "./" and redundant segments)
+    const relativePath = path
+      .relative(projectRoot, filePath)
+      .split(path.sep)
+      .join("/")
+      .toLowerCase();
+
     const isRuntimeDataFile =
-      normalizedPath.startsWith("data/") &&
-      normalizedPath.endsWith(".json");
+      relativePath.startsWith("backend/data/") ||
+      (relativePath.startsWith("data/") &&
+        relativePath.endsWith(".json"));
 
     if (isRuntimeDataFile) {
       try {
@@ -72,9 +84,24 @@ const writeProjectFiles = async (projectId, files) => {
       }
     }
 
+    let content = file.content;
+
+    // Never write a MONGO_URI that cannot exist in the sandbox
+    // (e.g. mongodb://mongodb:27017); it breaks JSON demo mode.
+    if (isEnvFile(normalizedPath)) {
+      const sanitized = stripUnreachableMongoUri(content);
+
+      if (sanitized.removedHosts.length > 0) {
+        console.warn(
+          `Removed sandbox-unreachable MONGO_URI (${sanitized.removedHosts.join(", ")}) from ${normalizedPath}`
+        );
+        content = sanitized.content;
+      }
+    }
+
     await fs.writeFile(
       filePath,
-      file.content,
+      content,
       "utf8"
     );
   }

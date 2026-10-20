@@ -8,10 +8,19 @@ import projectRoutes from "./routes/projectRoutes.js";
 
 const app = express();
 
+// Frontend origin(s) allowed to call the API with cookies.
+// CLIENT_URL may hold several origins separated by commas.
+const allowedOrigins = (
+  process.env.CLIENT_URL || "http://localhost:5173"
+)
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
   })
 );

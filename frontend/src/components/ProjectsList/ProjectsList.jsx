@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "@/lib/api";
 
 function ProjectsList({ projects, setProjects }) {
   const [loading, setLoading] = useState(true);
@@ -19,7 +20,7 @@ function ProjectsList({ projects, setProjects }) {
   const fetchProjects = async () => {
   try {
     const response = await fetch(
-      "http://localhost:5000/api/projects",
+      `${API_BASE_URL}/api/projects`,
       {
         method: "GET",
         credentials: "include",
@@ -62,7 +63,7 @@ function ProjectsList({ projects, setProjects }) {
       setDeletingId(projectId);
 
       const response = await fetch(
-        `http://localhost:5000/api/projects/${projectId}`,
+        `${API_BASE_URL}/api/projects/${projectId}`,
         {
           method: "DELETE",
           credentials: "include",

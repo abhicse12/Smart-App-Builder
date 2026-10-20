@@ -4,12 +4,34 @@ import validateProject from "./validatorService.js";
 import fixProject from "./fixerService.js";
 import runProject from "./runnerService.js";
 import generateProjectFiles from "./fileGenerationService.js";
+import runAuthSmokeTest from "./authSmokeTest.js";
+import { extractBackendEndpoints } from "./validators/apiContractValidator.js";
 
 const BATCH_SIZE = 4;
 
 const MAX_FIX_ATTEMPTS = 3;
 
 const MAX_RUNTIME_FIX_ATTEMPTS = 3;
+
+// Backend files first, so frontend batches can be given the routes the
+// backend really implements (order within each group is kept)
+const fileOrder = (filePath = "") => {
+  const normalized = String(filePath).replace(/\\/g, "/");
+
+  if (normalized.startsWith("backend/")) return 0;
+  if (normalized.startsWith("frontend/")) return 1;
+  return 2;
+};
+
+const orderFilesForGeneration = (files = []) =>
+  files
+    .map((file, index) => ({ file, index }))
+    .sort(
+      (a, b) =>
+        fileOrder(a.file.path) - fileOrder(b.file.path) ||
+        a.index - b.index
+    )
+    .map(({ file }) => file);
 
 /* =========================================================
    MERGE FIXED FILES
@@ -78,6 +100,19 @@ const generateApp = async (
     architecture.files.length
   );
 
+  architecture.files = orderFilesForGeneration(
+    architecture.files || []
+  );
+
+  const apiContract = Array.isArray(architecture.apiContract)
+    ? architecture.apiContract
+    : [];
+
+  console.log(
+    "API contract endpoints:",
+    apiContract.length
+  );
+
   const generatedFiles = [];
 
   /* =======================================================
@@ -127,6 +162,12 @@ const generateApp = async (
 
           allFiles:
             architecture.files,
+
+          apiContract,
+
+          // Routes from backend files generated in earlier batches
+          implementedEndpoints:
+            extractBackendEndpoints(generatedFiles).endpoints,
         });
 
       if (
@@ -445,6 +486,33 @@ const generateApp = async (
 
         throw new Error(
           "Docker runtime validation failed"
+        );
+      }
+
+      // The app starts; now check that signup/login really work
+      const authSmokeTest =
+        await runAuthSmokeTest({
+          files: generatedProject.files,
+          previewUrl:
+            runtimeResult.frontend?.previewUrl,
+        });
+
+      runtimeValidation.authSmokeTest =
+        authSmokeTest;
+
+      if (authSmokeTest.skipped) {
+        console.log(
+          "Auth smoke test skipped:",
+          authSmokeTest.reason
+        );
+      } else if (!authSmokeTest.success) {
+        throw new Error(
+          `Authentication smoke test failed: ${authSmokeTest.error}`
+        );
+      } else {
+        console.log(
+          "✅ Auth smoke test passed:",
+          authSmokeTest.steps.join(", ")
         );
       }
 

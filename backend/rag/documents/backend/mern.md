@@ -119,7 +119,8 @@ For applications requiring authentication:
 
 - Hash passwords before storing them.
 - Use JWT or another appropriate authentication mechanism.
-- Prefer HttpOnly cookies for browser-based authentication.
+- Return the JWT in the login/signup JSON ({ token, user }); the frontend sends it
+  as "Authorization: Bearer <token>". Generated apps do not use auth cookies.
 - Protect authenticated API routes using authentication middleware.
 - Check authorization before allowing users to access protected resources.
 
@@ -211,7 +212,8 @@ Production CORS configuration should allow only trusted origins.
 
 The frontend should determine authentication state through the backend rather than trusting client-side storage alone.
 
-For cookie-based authentication, API requests should include credentials when required.
+The api client adds "Authorization: Bearer <token>" to every request (axios interceptor).
+Keep the auth state in React state (AuthContext) so routes re-render after login.
 
 Protected frontend routes should redirect unauthenticated users to the login page.
 
@@ -262,7 +264,7 @@ Important rules:
 - Validate user input.
 - Hash passwords.
 - Protect authentication secrets.
-- Use HttpOnly cookies where appropriate.
+- Never return password hashes; keep the JWT secret in process.env.JWT_SECRET.
 - Restrict CORS.
 - Prevent unauthorized resource access.
 - Avoid exposing sensitive errors.

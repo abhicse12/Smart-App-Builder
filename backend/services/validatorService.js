@@ -2,6 +2,7 @@ import path from "path";
 import validateStructure from "./validators/structureValidator.js";
 import validateRuntime from "./validators/runtimeValidator.js";
 import validateFeatureCompleteness from "./validators/featureValidator.js";
+import validateApiContract from "./validators/apiContractValidator.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -33,6 +34,13 @@ const validateProject = (project) => {
   });
 
   validateRuntime({
+    files,
+    errors,
+    warnings,
+  });
+
+  // Frontend calls ↔ mounted backend routes, and auth wiring
+  validateApiContract({
     files,
     errors,
     warnings,
@@ -737,73 +745,7 @@ const validateProject = (project) => {
   // 13. API route consistency
   // =====================================
 
-  const backendRoutePrefixes = [];
-
-  for (const file of files) {
-    const normalizedPath =
-      normalizePath(file.path);
-
-    if (
-      !normalizedPath.includes(
-        "/routes/"
-      )
-    ) {
-      continue;
-    }
-
-    const routeMatches = [
-      ...file.content.matchAll(
-        /router\.(get|post|put|patch|delete)\s*\(\s*["']([^"']+)["']/g
-      ),
-    ];
-
-    for (const match of routeMatches) {
-      backendRoutePrefixes.push({
-        method:
-          match[1].toUpperCase(),
-        path: match[2],
-        file: normalizedPath,
-      });
-    }
-  }
-
-  const frontendApiCalls = [];
-
-  for (const file of files) {
-    const normalizedPath =
-      normalizePath(file.path);
-
-    if (
-      !normalizedPath.startsWith(
-        "frontend/"
-      )
-    ) {
-      continue;
-    }
-
-    const apiRegex =
-      /(?:api|axios)\.(get|post|put|patch|delete)\s*\(\s*["'`]([^"'`]+)["'`]/g;
-
-    for (const match of file.content.matchAll(
-      apiRegex
-    )) {
-      frontendApiCalls.push({
-        method:
-          match[1].toUpperCase(),
-        path: match[2],
-        file: normalizedPath,
-      });
-    }
-  }
-
-  if (
-    frontendApiCalls.length > 0 &&
-    backendRoutePrefixes.length === 0
-  ) {
-    warnings.push(
-      "Frontend contains API calls but no backend routes were detected."
-    );
-  }
+  // Checked by validators/apiContractValidator.js
 
   // =====================================
   // 14. Auth dependency validation

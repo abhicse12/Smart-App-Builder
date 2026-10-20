@@ -122,7 +122,7 @@ server.js should be responsible for starting the server.
 Example:
 import app from "./app.js";
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
@@ -277,7 +277,8 @@ app.use(
 );
 
 Do not allow unrestricted origins unnecessarily.
-If cookies are used for authentication, configure CORS and credentials consistently.
+Generated apps authenticate with a JWT returned in the login JSON and sent as
+"Authorization: Bearer <token>" (no cookies), so cors() needs no credentials.
 15. Environment Variables
 Use environment variables for:
 PORT
@@ -378,10 +379,10 @@ Backend should support a valid Node.js startup command.
 Keep the ports consistent.
 Example:
 Frontend → 5173
-Backend  → 5000
+Backend  → 5001
 
 If Vite proxy is used:
-/api → http://localhost:5000
+/api → http://localhost:5001
 
 The actual generated configuration must match the runtime environment.
 Never create a proxy target that points to a nonexistent backend port.

@@ -1,5 +1,10 @@
 import generateWithAI from "./aiService.js";
 import retrieveRelevantKnowledge from "./retrievalService.js";
+import {
+  API_CONVENTIONS,
+  formatApiContract,
+  usesApiConventions,
+} from "./generationContract.js";
 
 const generateBatchCode = async ({
   projectName,
@@ -7,7 +12,41 @@ const generateBatchCode = async ({
   techStack,
   files,
   allFiles,
+  apiContract = [],
+  implementedEndpoints = [],
 }) => {
+  // Shared API contract for Express + Vite projects. Backend files are
+  // generated first, so frontend batches see the routes that really exist.
+  const contractSection = usesApiConventions(techStack)
+    ? `
+${API_CONVENTIONS}
+
+==================================================
+API CONTRACT (FROM THE ARCHITECT)
+==================================================
+
+${formatApiContract(apiContract)}
+
+==================================================
+BACKEND ENDPOINTS ALREADY GENERATED (AUTHORITATIVE)
+==================================================
+
+These routes exist in backend files generated in earlier batches.
+Frontend code MUST call exactly these methods and paths (through the
+api client, without the /api prefix). If they differ from the API
+contract above, these win. Backend files in this batch must not change
+them.
+
+${
+  implementedEndpoints.length > 0
+    ? implementedEndpoints
+        .map((endpoint) => `${endpoint.method} ${endpoint.path}`)
+        .join("\n")
+    : "None generated yet."
+}
+`
+    : "";
+
     const retrievalQuery = `
   Project Name:
   ${projectName}
@@ -105,6 +144,8 @@ COMPLETE PROJECT STRUCTURE
 ==================================================
 
 ${allFiles.map((file) => `- ${file.path}`).join("\n")}
+
+${contractSection}
 
 ==================================================
 BATCH OUTPUT RULES
@@ -224,23 +265,22 @@ FRONTEND / BACKEND CONSISTENCY
 
 Every frontend API request must correspond to an existing backend route.
 
-Use the exact API paths defined by the backend architecture.
+Use the exact API paths from the API contract / generated backend
+endpoints. Do not invent API endpoints.
 
-Do not invent API endpoints.
+Frontend API requests must use the centralized API client
+(frontend/src/services/api.js), created with:
 
-Frontend API requests must use the centralized API client.
+axios.create({ baseURL: "/api" })
 
-Do NOT hardcode backend URLs inside React components.
+and called WITHOUT the /api prefix:
 
-Use:
+api.get("/patients")        -> GET /api/patients
 
-api.get("/patients")
+api.post("/patients", data) -> POST /api/patients
 
-api.post("/patients", data)
-
-instead of:
-
-fetch("http://localhost:5001/api/patients")
+Do NOT hardcode backend URLs, and do NOT call fetch("http://localhost:5001/...")
+or paths outside /api: the Vite dev server only proxies /api to the backend.
 
 ==================================================
 FRONTEND UI / STYLING RULES
@@ -466,7 +506,8 @@ Before returning the response, internally verify:
 
 3. Every import points to an existing file or installed dependency.
 
-4. Every API endpoint exists in the backend architecture.
+4. Every frontend API call matches a backend route (method AND full path,
+   including the /api prefix added by the api client).
 
 5. Every route/controller function name matches.
 

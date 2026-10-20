@@ -13,6 +13,8 @@ import runProjectInDocker, {
 
 import writeProjectFiles from "../services/writeProjectFiles.js";
 import modifyValidatorService from "../services/modifyValidatorService.js";
+import validateProject from "../services/validatorService.js";
+import runAuthSmokeTest from "../services/authSmokeTest.js";
 import fixProject from "../services/fixerService.js";
 import syncProjectFiles from "../services/syncProjectFiles.js";
 import { errorDetails } from "../utils/errorResponse.js";
@@ -708,6 +710,23 @@ export const modifyProject = async (req, res) => {
     console.log(`User request: ${userRequest}`);
 
     // ==================================================
+    // FIND PROBLEMS IN THE CURRENT PROJECT
+    // ==================================================
+
+    // A request like "fix the login" says nothing about the cause;
+    // the validator's findings tell the Modify agent what is broken
+    const initialValidation = validateProject({
+      files: project.files || [],
+    });
+
+    if (initialValidation.errors.length > 0) {
+      console.log(
+        "Problems found before modification:",
+        initialValidation.errors
+      );
+    }
+
+    // ==================================================
     // SEND EXISTING PROJECT TO AI
     // ==================================================
 
@@ -718,6 +737,7 @@ export const modifyProject = async (req, res) => {
         techStack: project.techStack || [],
         files: project.files || [],
         userRequest,
+        knownProblems: initialValidation.errors,
       });
 
     if (
@@ -767,14 +787,41 @@ export const modifyProject = async (req, res) => {
       return protectedFiles.has(fileName);
     };
 
-    // ==================================================
-    // FILTER AI FILES
-    // ==================================================
-
-    const allowedModifiedFiles =
-      modifiedProject.files.filter(
-        (file) => !isProtectedPath(file.path)
+    // Apply AI output (Modify agent or Fixer) to the project files,
+    // skipping protected files; returns the paths that were applied
+    const applyFiles = (aiFiles = []) => {
+      const allowed = aiFiles.filter(
+        (file) =>
+          file?.path &&
+          typeof file.content === "string" &&
+          !isProtectedPath(file.path)
       );
+
+      const updates = new Map(
+        allowed.map((file) => [file.path, file.content])
+      );
+
+      const existingPaths = new Set(
+        project.files.map((file) => file.path)
+      );
+
+      project.files = project.files.map((file) =>
+        updates.has(file.path)
+          ? { path: file.path, content: updates.get(file.path) }
+          : file
+      );
+
+      for (const file of allowed) {
+        if (!existingPaths.has(file.path)) {
+          project.files.push({
+            path: file.path,
+            content: file.content,
+          });
+        }
+      }
+
+      return allowed.map((file) => file.path);
+    };
 
     console.log(
       "AI returned files:",
@@ -783,67 +830,70 @@ export const modifyProject = async (req, res) => {
       )
     );
 
+    const changedFiles = new Set(
+      applyFiles(modifiedProject.files)
+    );
+
     console.log(
       "Allowed modified files:",
-      allowedModifiedFiles.map(
-        (file) => file.path
-      )
+      [...changedFiles]
     );
 
     // ==================================================
-    // UPDATE ONLY ALLOWED FILES
+    // STATIC VALIDATION + FIXER (BEFORE SAVING)
     // ==================================================
 
-    const modifiedFilesMap = new Map(
-      allowedModifiedFiles.map((file) => [
-        file.path,
-        file.content,
-      ])
-    );
+    const MAX_MODIFY_FIX_ATTEMPTS = 2;
 
-    const existingPaths = new Set(
-      project.files.map((file) => file.path)
-    );
-
-    // ==================================================
-    // UPDATE EXISTING FILES
-    // ==================================================
-
-    project.files = project.files.map((file) => {
-      if (modifiedFilesMap.has(file.path)) {
-        return {
-          path: file.path,
-          content: modifiedFilesMap.get(
-            file.path
-          ),
-        };
-      }
-
-      return file;
+    let validation = validateProject({
+      files: project.files,
     });
 
-    // ==================================================
-    // ADD NEW FILES
-    // ==================================================
+    for (
+      let attempt = 1;
+      !validation.valid &&
+      attempt <= MAX_MODIFY_FIX_ATTEMPTS;
+      attempt++
+    ) {
+      console.log(
+        `Fixer after modification ${attempt}/${MAX_MODIFY_FIX_ATTEMPTS}:`,
+        validation.errors
+      );
 
-    for (const file of allowedModifiedFiles) {
-      if (!existingPaths.has(file.path)) {
-        project.files.push({
-          path: file.path,
-          content: file.content,
+      try {
+        const fixResult = await fixProject({
+          projectName: project.name,
+          description: project.description || "",
+          techStack: project.techStack || [],
+          errors: validation.errors,
+          files: project.files,
         });
+
+        if (!fixResult || !Array.isArray(fixResult.files)) {
+          throw new Error("Invalid Fixer response");
+        }
+
+        for (const filePath of applyFiles(fixResult.files)) {
+          changedFiles.add(filePath);
+        }
+      } catch (fixError) {
+        console.error(
+          "Fixer after modification failed:",
+          fixError.message
+        );
+        break;
       }
+
+      validation = validateProject({
+        files: project.files,
+      });
     }
 
     // ==================================================
-    // SAVE TO MONGODB
+    // SAVE TO MONGODB + WRITE FILES TO DISK
     // ==================================================
 
     await project.save();
-
-    // ==================================================
-    // WRITE FILES TO DISK
-    // ==================================================
 
     await writeProjectFiles(
       project._id,
@@ -851,17 +901,10 @@ export const modifyProject = async (req, res) => {
     );
 
     console.log(
-      "Modified files written to disk"
+      "Modified files written to disk and saved to MongoDB"
     );
 
-    console.log(
-      "Modified files saved to MongoDB"
-    );
-
-    // ==================================================
-    // VALIDATE PROJECT
-    // ==================================================
-
+    // Basic file checks on disk (empty files, missing folder)
     const validationResult =
       await modifyValidatorService(
         project._id
@@ -876,32 +919,127 @@ export const modifyProject = async (req, res) => {
       });
     }
 
-    console.log(
-      "Modified project validation passed"
-    );
-
     // ==================================================
-    // STOP EXISTING CONTAINER
+    // RESTART + RUNTIME CHECK (LOGIN SMOKE TEST)
     // ==================================================
 
-    await stopProject(project._id);
+    const MAX_MODIFY_RUNTIME_ATTEMPTS = 2;
 
-    // ==================================================
-    // START UPDATED PROJECT
-    // ==================================================
+    let runnerResult = null;
+    let runtimeError = null;
 
-    const runnerResult =
-      await runProjectInDocker(
-        project._id
-      );
+    for (
+      let attempt = 1;
+      attempt <= MAX_MODIFY_RUNTIME_ATTEMPTS + 1;
+      attempt++
+    ) {
+      try {
+        await stopProject(project._id);
 
-    console.log(
-      "Updated project started successfully"
-    );
+        runnerResult = await runProjectInDocker(
+          project._id
+        );
+
+        const smoke = await runAuthSmokeTest({
+          files: project.files,
+          previewUrl: runnerResult?.frontend?.previewUrl,
+        });
+
+        if (!smoke.skipped && !smoke.success) {
+          throw new Error(
+            `Authentication smoke test failed: ${smoke.error}`
+          );
+        }
+
+        runtimeError = null;
+        break;
+      } catch (error) {
+        runtimeError = error.message;
+
+        console.error(
+          `Runtime check after modification failed (${attempt}):`,
+          runtimeError.slice(0, 500)
+        );
+
+        if (attempt > MAX_MODIFY_RUNTIME_ATTEMPTS) {
+          break;
+        }
+
+        try {
+          let errorDetail;
+
+          try {
+            errorDetail = JSON.parse(runtimeError);
+          } catch {
+            errorDetail = {
+              type: "RUNTIME_ERROR",
+              message: runtimeError,
+            };
+          }
+
+          const fixResult = await fixProject({
+            projectName: project.name,
+            description: project.description || "",
+            techStack: project.techStack || [],
+            errors: [errorDetail],
+            files: project.files,
+          });
+
+          if (!fixResult || !Array.isArray(fixResult.files)) {
+            throw new Error("Invalid Fixer response");
+          }
+
+          for (const filePath of applyFiles(fixResult.files)) {
+            changedFiles.add(filePath);
+          }
+
+          await project.save();
+          await writeProjectFiles(project._id, project.files);
+
+          validation = validateProject({
+            files: project.files,
+          });
+        } catch (fixError) {
+          console.error(
+            "Runtime Fixer after modification failed:",
+            fixError.message
+          );
+          break;
+        }
+      }
+    }
 
     // ==================================================
     // RESPONSE
     // ==================================================
+
+    const remainingProblems = [
+      ...validation.errors,
+      ...(runtimeError ? [runtimeError] : []),
+    ];
+
+    if (remainingProblems.length > 0) {
+      console.warn(
+        "Modification saved, but problems remain:",
+        remainingProblems
+      );
+
+      return res.status(422).json({
+        success: false,
+        message: `The changes were saved, but ${remainingProblems.length} problem(s) remain: ${remainingProblems
+          .slice(0, 3)
+          .map((problem) => problem.slice(0, 300))
+          .join(" | ")}`,
+        projectId: project._id,
+        modifiedFiles: [...changedFiles],
+        errors: remainingProblems,
+        runner: runnerResult,
+      });
+    }
+
+    console.log(
+      "Updated project validated and started successfully"
+    );
 
     return res.status(200).json({
       success: true,
@@ -910,12 +1048,9 @@ export const modifyProject = async (req, res) => {
 
       projectId: project._id,
 
-      modifiedFiles:
-        allowedModifiedFiles.map(
-          (file) => file.path
-        ),
+      modifiedFiles: [...changedFiles],
 
-      validation: validationResult,
+      validation,
 
       runner: runnerResult,
     });

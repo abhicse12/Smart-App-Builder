@@ -123,7 +123,8 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         "Something went wrong while generating the application."
     );
 
-    setAgentStep(0);
+    // back to idle
+    setAgentStep(-1);
 
   } finally {
     setLoading(false);

@@ -23,8 +23,13 @@ function GenerationProgress({ agentStep }) {
     },
   ];
 
+  // agentStep -1 means idle (no generation running)
+  const idle = agentStep < 0;
+
   const progress =
-    agentStep === 0
+    idle
+      ? 0
+      : agentStep === 0
       ? 10
       : agentStep === 1
       ? 45
@@ -47,6 +52,8 @@ function GenerationProgress({ agentStep }) {
           <p className="text-sm text-slate-400 mt-1">
             {completed
               ? "Your application has been generated successfully"
+              : idle
+              ? "Describe your application above and click Generate"
               : "AI agents are working on your application"}
           </p>
         </div>

@@ -25,7 +25,8 @@ function ProjectDetails() {
   const [loading, setLoading] = useState(true);
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [agentStep, setAgentStep] = useState(0);
+  // -1 = idle (no generation running), 0-3 = agent steps
+  const [agentStep, setAgentStep] = useState(-1);
 
   const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);

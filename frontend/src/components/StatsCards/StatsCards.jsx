@@ -12,7 +12,13 @@ const getStats = (projects = []) => {
     (project) => project.files?.length > 0
   );
 
-  const verified = generated.filter(
+  // "modified" (set by an older modify flow) does not record whether
+  // the runtime check passed, so those projects are left out of the rate
+  const withRuntimeResult = generated.filter(
+    (project) => project.status !== "modified"
+  );
+
+  const verified = withRuntimeResult.filter(
     (project) => project.status === "verified"
   );
 
@@ -32,11 +38,11 @@ const getStats = (projects = []) => {
     {
       title: "Success Rate",
       value:
-        generated.length > 0
-          ? `${Math.round((verified.length / generated.length) * 100)}%`
+        withRuntimeResult.length > 0
+          ? `${Math.round((verified.length / withRuntimeResult.length) * 100)}%`
           : "–",
       icon: CheckCircle2,
-      hint: "Generated projects whose last generation passed the Docker runtime check",
+      hint: `${verified.length} of ${withRuntimeResult.length} generated projects passed the Docker runtime check (projects with status "modified" are not counted)`,
     },
     {
       title: "Not Generated",

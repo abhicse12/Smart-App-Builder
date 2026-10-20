@@ -588,6 +588,13 @@ const runProject = async (projectId) => {
       "--security-opt",
       "no-new-privileges",
 
+      // nginx's root master only needs these to set up its cache
+      // dirs and switch to the unprivileged worker user
+      "--cap-drop=ALL",
+      "--cap-add=CHOWN",
+      "--cap-add=SETUID",
+      "--cap-add=SETGID",
+
       "-v",
       `${projectRoot}:/usr/share/nginx/html:ro`,
 
@@ -667,6 +674,10 @@ const runProject = async (projectId) => {
 
       "--security-opt",
       "no-new-privileges",
+
+      // Generated code and npm install scripts need no Linux
+      // capabilities
+      "--cap-drop=ALL",
 
       "-v",
       `${projectRoot}:/app`,
@@ -808,6 +819,10 @@ console.log("DEBUG docker port output:", portCheck.stdout);
 
       "--security-opt",
       "no-new-privileges",
+
+      // Generated code and npm install scripts need no Linux
+      // capabilities
+      "--cap-drop=ALL",
 
       "-v",
       `${projectRoot}:/app`,

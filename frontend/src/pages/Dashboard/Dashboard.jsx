@@ -27,7 +27,7 @@ function Dashboard() {
         onNewProject={() => setShowNewProject(true)}
       />
 
-      <StatsCards />
+      <StatsCards projects={projects} />
 
       <ProjectsList
         projects={projects}

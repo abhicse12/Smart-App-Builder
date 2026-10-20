@@ -3,7 +3,7 @@ import "dotenv/config";
 import {
   generateDocumentEmbedding,
   generateQueryEmbedding,
-} from "./services/embeddingService.js";
+} from "../../services/embeddingService.js";
 
 const test = async () => {
   try {

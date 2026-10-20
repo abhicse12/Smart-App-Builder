@@ -5,8 +5,8 @@ dotenv.config();
 import fs from "fs";
 import path from "path";
 
-import fixProject from "./services/fixerService.js";
-import validateProject from "./services/validatorService.js";
+import fixProject from "../../services/fixerService.js";
+import validateProject from "../../services/validatorService.js";
 
 const projectId = "6aa31f95767d915bbe06cf07";
 

@@ -1,4 +1,4 @@
-import runProject from "./services/runnerService.js";
+import runProject from "../../services/runnerService.js";
 
 const projectId = "6aa31f95767d915bbe06cf07";
 

@@ -1,8 +1,8 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import connectDB from "./config/db.js";
-import syncProjectFiles from "./services/syncProjectFiles.js";
+import connectDB from "../../config/db.js";
+import syncProjectFiles from "../../services/syncProjectFiles.js";
 
 const projectId = "6aa31f95767d915bbe06cf07";
 

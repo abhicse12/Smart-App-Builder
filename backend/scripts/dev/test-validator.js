@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import validateProject from "./services/validatorService.js";
+import validateProject from "../../services/validatorService.js";
 
 const projectId = "6ad08b1c76b045af7830d392";
 

@@ -1,7 +1,7 @@
 import "dotenv/config";
 
 import mongoose from "mongoose";
-import retrieveRelevantKnowledge from "./services/retrievalService.js";
+import retrieveRelevantKnowledge from "../../services/retrievalService.js";
 
 const testRetrieval = async () => {
   try {

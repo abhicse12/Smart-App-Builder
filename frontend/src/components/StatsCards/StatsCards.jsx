@@ -8,18 +8,18 @@ import {
 
 // Stats computed from the user's projects (same list as "Your Projects")
 const getStats = (projects = []) => {
-  const generated = projects.filter(
+  // Projects that went through generation (they have saved files)
+  const attempted = projects.filter(
     (project) => project.files?.length > 0
   );
 
-  // "modified" (set by an older modify flow) does not record whether
-  // the runtime check passed, so those projects are left out of the rate
-  const withRuntimeResult = generated.filter(
-    (project) => project.status !== "modified"
+  // A failed generation keeps its files with status "validation_failed"
+  const failed = attempted.filter(
+    (project) => project.status === "validation_failed"
   );
 
-  const verified = withRuntimeResult.filter(
-    (project) => project.status === "verified"
+  const generated = attempted.filter(
+    (project) => project.status !== "validation_failed"
   );
 
   return [
@@ -33,20 +33,20 @@ const getStats = (projects = []) => {
       title: "Generated",
       value: generated.length,
       icon: Bot,
-      hint: "Projects that have generated code",
+      hint: "Projects generated successfully",
     },
     {
       title: "Success Rate",
       value:
-        withRuntimeResult.length > 0
-          ? `${Math.round((verified.length / withRuntimeResult.length) * 100)}%`
+        attempted.length > 0
+          ? `${Math.round((generated.length / attempted.length) * 100)}%`
           : "–",
       icon: CheckCircle2,
-      hint: `${verified.length} of ${withRuntimeResult.length} generated projects passed the Docker runtime check (projects with status "modified" are not counted)`,
+      hint: `${generated.length} of ${attempted.length} generations succeeded${failed.length ? ` (${failed.length} failed validation)` : ""}; projects not generated yet are not counted`,
     },
     {
       title: "Not Generated",
-      value: projects.length - generated.length,
+      value: projects.length - attempted.length,
       icon: Clock,
       hint: "Projects created but not generated yet",
     },

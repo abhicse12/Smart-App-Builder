@@ -1,6 +1,5 @@
 import generateApp from "../services/generationService.js";
 import generateProjectFiles from "../services/fileGenerationService.js";
-import modifyProject from "../services/modifyProjectService.js";
 import Project from "../models/Project.js";
 import { errorDetails } from "../utils/errorResponse.js";
 
@@ -49,119 +48,16 @@ export const generateProject = async (req, res) => {
     console.log("=================================\n");
 
     // ==========================================
-    // 3. MODIFY EXISTING PROJECT
+    // 3. Modifications use the protected endpoint
+    //    (ownership, protected config/runtime-data
+    //    files, validation, restart)
     // ==========================================
 
     if (mode === "modify") {
-      console.log("✏️ Modifying existing project...");
-
-      const result = await modifyProject({
-        projectName: project.name,
-        description: project.description || "",
-        techStack,
-        files: project.files || [],
-        userRequest: prompt,
-      });
-
-      if (
-        !result ||
-        !Array.isArray(result.files)
-      ) {
-        return res.status(500).json({
-          success: false,
-          message: "Invalid modification response from AI",
-        });
-      }
-
-      console.log(
-        "Modified files:",
-        result.files.map((file) => file.path)
-      );
-
-      // ==========================================
-      // Merge modified files with existing files
-      // ==========================================
-
-      const fileMap = new Map(
-        (project.files || []).map((file) => [
-          file.path,
-          file,
-        ])
-      );
-
-      for (const modifiedFile of result.files) {
-        fileMap.set(
-          modifiedFile.path,
-          modifiedFile
-        );
-      }
-
-      const updatedFiles =
-        Array.from(fileMap.values());
-
-      // ==========================================
-      // Write modified files to disk
-      // ==========================================
-
-      console.log(
-        "📁 Writing modified files to disk..."
-      );
-
-      const projectFilesResult =
-        await generateProjectFiles(
-          projectId,
-          updatedFiles
-        );
-
-      console.log(
-        "✅ Modified files written to disk"
-      );
-
-      console.log(
-        "Project root:",
-        projectFilesResult.projectRoot
-      );
-
-      // ==========================================
-      // Save updated project
-      // ==========================================
-
-      project.files =
-        projectFilesResult.formattedFiles;
-
-      project.status = "modified";
-
-      await project.save();
-
-      console.log(
-        "✅ Existing project modified successfully"
-      );
-
-      // ==========================================
-      // Response
-      // ==========================================
-
-      return res.status(200).json({
-        success: true,
-
+      return res.status(400).json({
+        success: false,
         message:
-          "Project modified successfully",
-
-        projectId: project._id,
-
-        modifiedFiles:
-          result.files.map(
-            (file) => file.path
-          ),
-
-
-        result: {
-          projectName: project.name,
-          description: project.description,
-          techStack: project.techStack,
-          files:
-            projectFilesResult.formattedFiles,
-        },
+          "Use POST /api/projects/:id/modify to modify an existing project",
       });
     }
 

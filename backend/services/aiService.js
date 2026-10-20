@@ -5,9 +5,13 @@ const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 const parseAIJson = (text) => {
+  // Remove a markdown code fence only when it wraps the whole
+  // response. ``` inside generated file contents (e.g. README
+  // code blocks) must be kept.
   const cleaned = text
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
+    .trim()
+    .replace(/^```(?:json)?[^\S\r\n]*\r?\n?/i, "")
+    .replace(/\r?\n?[^\S\r\n]*```$/, "")
     .trim();
 
   try {

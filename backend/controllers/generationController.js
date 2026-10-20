@@ -2,6 +2,7 @@ import generateApp from "../services/generationService.js";
 import generateProjectFiles from "../services/fileGenerationService.js";
 import modifyProject from "../services/modifyProjectService.js";
 import Project from "../models/Project.js";
+import { errorDetails } from "../utils/errorResponse.js";
 
 export const generateProject = async (req, res) => {
   try {
@@ -153,8 +154,6 @@ export const generateProject = async (req, res) => {
             (file) => file.path
           ),
 
-        projectPath:
-          projectFilesResult.projectRoot,
 
         result: {
           projectName: project.name,
@@ -291,8 +290,6 @@ export const generateProject = async (req, res) => {
 
       projectId: project._id,
 
-      projectPath:
-        result.projectRoot,
 
       validation:
         result.validation,
@@ -327,8 +324,7 @@ export const generateProject = async (req, res) => {
       message:
         "Failed to process application",
 
-      error:
-        error.message,
+      ...errorDetails(error),
     });
   }
 };

@@ -14,6 +14,7 @@ import writeProjectFiles from "../services/writeProjectFiles.js";
 import modifyValidatorService from "../services/modifyValidatorService.js";
 import fixProject from "../services/fixerService.js";
 import syncProjectFiles from "../services/syncProjectFiles.js";
+import { errorDetails } from "../utils/errorResponse.js";
 
 // ======================================================
 // CREATE PROJECT
@@ -42,7 +43,7 @@ export const createProject = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to create project",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -67,7 +68,7 @@ export const getProjects = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch projects",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -100,7 +101,7 @@ export const getProjectById = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch project",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -137,7 +138,7 @@ export const getProjectFiles = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to fetch project files",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -200,7 +201,7 @@ export const downloadProject = async (req, res) => {
       res.status(500).json({
         success: false,
         message: "Failed to download project",
-        error: error.message,
+        ...errorDetails(error),
       });
     }
   }
@@ -432,7 +433,7 @@ export const runProject = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to run project",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -529,7 +530,7 @@ export const deleteProject = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete project",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };
@@ -800,7 +801,7 @@ export const modifyProject = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to modify project",
-      error: error.message,
+      ...errorDetails(error),
     });
   }
 };

@@ -26,7 +26,10 @@ export const generateProject = async (req, res) => {
     // 2. Find existing project
     // ==========================================
 
-    const project = await Project.findById(projectId);
+    const project = await Project.findOne({
+      _id: projectId,
+      user: req.user.userId,
+    });
 
     if (!project) {
       return res.status(404).json({
@@ -183,10 +186,50 @@ export const generateProject = async (req, res) => {
       result.validation &&
       !result.validation.valid
     ) {
+      // Keep the generated code instead of discarding it, so it
+      // can be reviewed, downloaded or repaired with a modify request.
+      let savedFiles = (result.files || []).filter(
+        (file) =>
+          file &&
+          typeof file.path === "string" &&
+          typeof file.content === "string"
+      );
+
+      try {
+        const projectFilesResult =
+          await generateProjectFiles(
+            projectId,
+            savedFiles
+          );
+
+        savedFiles =
+          projectFilesResult.formattedFiles;
+      } catch (writeError) {
+        console.error(
+          "Could not write files of failed generation to disk:",
+          writeError.message
+        );
+      }
+
+      if (!project.description) {
+        project.description =
+          result.description;
+      }
+
+      project.files = savedFiles;
+
+      project.status = "validation_failed";
+
+      await project.save();
+
       return res.status(400).json({
         success: false,
         message:
-          "Generated project validation failed",
+          "Generated project validation failed. The generated files were saved so you can review or modify them.",
+
+        projectId: project._id,
+
+        filesSaved: savedFiles.length,
 
         validation:
           result.validation,

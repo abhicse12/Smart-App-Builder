@@ -13,7 +13,6 @@
   "dependencies": {
     "@google/genai": "^2.18.0",
     "archiver": "^8.0.0",
-    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
@@ -23,8 +22,6 @@
     "groq-sdk": "^1.6.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.3",
-    "multer": "^2.2.0",
-    "openai": "^7.5.0",
     "prettier": "^3.9.6"
   },
   "devDependencies": {

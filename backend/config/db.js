@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+// Treat query filter values as literals: a request value such as
+// {"$gt": ""} can never act as a MongoDB operator
+mongoose.set("sanitizeFilter", true);
+
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI);

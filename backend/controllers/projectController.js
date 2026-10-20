@@ -20,16 +20,79 @@ import { errorDetails } from "../utils/errorResponse.js";
 // CREATE PROJECT
 // ======================================================
 
+const MAX_NAME_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 2000;
+const MAX_TECH_ITEMS = 20;
+const MAX_TECH_LENGTH = 50;
+
+// Validates the client-supplied project fields.
+// Returns { fields } or { error }.
+const validateNewProject = (body = {}) => {
+  const { name, description = "", techStack = [] } = body;
+
+  if (typeof name !== "string" || !name.trim()) {
+    return { error: "Project name is required" };
+  }
+
+  if (name.trim().length > MAX_NAME_LENGTH) {
+    return {
+      error: `Project name must be at most ${MAX_NAME_LENGTH} characters`,
+    };
+  }
+
+  if (
+    typeof description !== "string" ||
+    description.length > MAX_DESCRIPTION_LENGTH
+  ) {
+    return {
+      error: `Description must be text of at most ${MAX_DESCRIPTION_LENGTH} characters`,
+    };
+  }
+
+  if (
+    !Array.isArray(techStack) ||
+    techStack.length > MAX_TECH_ITEMS ||
+    techStack.some(
+      (tech) =>
+        typeof tech !== "string" ||
+        !tech.trim() ||
+        tech.trim().length > MAX_TECH_LENGTH
+    )
+  ) {
+    return {
+      error: `Tech stack must be a list of up to ${MAX_TECH_ITEMS} technology names`,
+    };
+  }
+
+  return {
+    fields: {
+      name: name.trim(),
+      description: description.trim(),
+      techStack: [
+        ...new Set(techStack.map((tech) => tech.trim())),
+      ],
+    },
+  };
+};
+
 export const createProject = async (req, res) => {
   try {
-    const { name, description, techStack, status } = req.body;
+    const { fields, error } = validateNewProject(
+      req.body ?? {}
+    );
 
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: error,
+      });
+    }
+
+    // status is never taken from the client; new projects
+    // always start as "active" (the schema default)
     const project = await Project.create({
       user: req.user.userId,
-      name,
-      description,
-      techStack,
-      status,
+      ...fields,
     });
 
     res.status(201).json({

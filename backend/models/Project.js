@@ -34,9 +34,15 @@ const projectSchema = new mongoose.Schema(
           required: true,
         },
 
+        // Empty content is valid (e.g. a Python package's __init__.py);
+        // "required" would reject "" , so only a missing value is refused
         content: {
           type: String,
-          required: true,
+          default: "",
+          validate: {
+            validator: (value) => typeof value === "string",
+            message: "File content must be a string",
+          },
         },
       },
     ],

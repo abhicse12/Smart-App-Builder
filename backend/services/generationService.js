@@ -129,12 +129,14 @@ const generateApp = async (
     architecture.files || []
   );
 
-  const apiContract = Array.isArray(architecture.apiContract)
-    ? architecture.apiContract
-    : [];
-
   // "python" / "java" for basic console programs, otherwise null
   const consoleLanguage = getConsoleLanguage(techStack);
+
+  // Console programs have no HTTP API, even if the model listed one
+  const apiContract =
+    !consoleLanguage && Array.isArray(architecture.apiContract)
+      ? architecture.apiContract
+      : [];
 
   console.log(
     "API contract endpoints:",

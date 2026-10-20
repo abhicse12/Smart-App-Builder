@@ -243,14 +243,21 @@ export const generateProject = async (req, res) => {
     // 6. Save generated project
     // ==========================================
 
-    project.name =
-      result.projectName;
+    // Keep the project name the user entered; the AI's
+    // projectName is not saved.
 
     project.description =
       result.description;
 
-    project.techStack =
-      result.techStack;
+    // Store the AI's (usually more detailed) tech stack, but
+    // never replace the user's selection with an empty/invalid one
+    if (
+      Array.isArray(result.techStack) &&
+      result.techStack.length > 0
+    ) {
+      project.techStack =
+        result.techStack;
+    }
 
     project.files =
       result.formattedFiles;
@@ -295,13 +302,13 @@ export const generateProject = async (req, res) => {
 
       result: {
         projectName:
-          result.projectName,
+          project.name,
 
         description:
-          result.description,
+          project.description,
 
         techStack:
-          result.techStack,
+          project.techStack,
 
         files:
           result.formattedFiles,

@@ -1,4 +1,3 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Bot, Code2, ShieldCheck } from "lucide-react";
 
 function AgentStatus({ isGenerating, agentStep }) {
@@ -13,10 +12,10 @@ function AgentStatus({ isGenerating, agentStep }) {
           : "Ready",
       color:
         agentStep === 0
-          ? "bg-blue-500 animate-pulse"
+          ? "bg-primary animate-pulse"
           : agentStep >= 1
-          ? "bg-green-500"
-          : "bg-slate-500",
+          ? "bg-success"
+          : "bg-muted-foreground/40",
       icon: Bot,
     },
 
@@ -30,10 +29,10 @@ function AgentStatus({ isGenerating, agentStep }) {
           : "Waiting",
       color:
         agentStep === 1
-          ? "bg-blue-500 animate-pulse"
+          ? "bg-primary animate-pulse"
           : agentStep >= 2
-          ? "bg-green-500"
-          : "bg-yellow-500",
+          ? "bg-success"
+          : "bg-warning",
       icon: Code2,
     },
 
@@ -47,51 +46,47 @@ function AgentStatus({ isGenerating, agentStep }) {
           : "Waiting",
       color:
         agentStep === 2
-          ? "bg-blue-500 animate-pulse"
+          ? "bg-primary animate-pulse"
           : agentStep >= 3
-          ? "bg-green-500"
-          : "bg-slate-500",
+          ? "bg-success"
+          : "bg-muted-foreground/40",
       icon: ShieldCheck,
     },
   ];
 
   return (
-    <div className="mt-6">
-      <h2 className="text-xl font-semibold text-white mb-4">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h2 className="mb-3 text-sm font-semibold text-foreground">
         AI Agent Status
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="space-y-2">
         {agents.map((agent) => (
-          <Card
+          <div
             key={agent.name}
-            className="bg-slate-900 border-slate-800"
+            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5"
           >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <agent.icon
-                  className="text-blue-500"
-                  size={30}
-                />
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <agent.icon className="size-4 text-primary" />
+            </div>
 
-                <div
-                  className={`h-3 w-3 rounded-full ${agent.color}`}
-                />
-              </div>
-
-              <h3 className="text-lg text-white font-semibold mt-4">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-medium text-foreground">
                 {agent.name}
               </h3>
+            </div>
 
-              <p className="text-slate-400 mt-2">
-                Status: {agent.status}
-              </p>
-            </CardContent>
-          </Card>
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span
+                className={`size-2 rounded-full ${agent.color}`}
+              />
+              {agent.status}
+            </span>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-export default AgentStatus;
+export default AgentStatus;

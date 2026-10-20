@@ -28,12 +28,14 @@ const getStats = (projects = []) => {
       value: projects.length,
       icon: FolderKanban,
       hint: "All your projects",
+      tone: "bg-primary/10 text-primary",
     },
     {
       title: "Generated",
       value: generated.length,
       icon: Bot,
       hint: "Projects generated successfully",
+      tone: "bg-info/10 text-info",
     },
     {
       title: "Success Rate",
@@ -43,12 +45,14 @@ const getStats = (projects = []) => {
           : "–",
       icon: CheckCircle2,
       hint: `${generated.length} of ${attempted.length} generations succeeded${failed.length ? ` (${failed.length} failed validation)` : ""}; projects not generated yet are not counted`,
+      tone: "bg-success/10 text-success",
     },
     {
       title: "Not Generated",
       value: projects.length - attempted.length,
       icon: Clock,
       hint: "Projects created but not generated yet",
+      tone: "bg-warning/15 text-warning",
     },
   ];
 };
@@ -57,26 +61,26 @@ function StatsCards({ projects = [] }) {
   const stats = getStats(projects);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-6">
+    <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((item) => (
         <Card
           key={item.title}
           title={item.hint}
-          className="bg-slate-900 border-slate-800"
+          className="py-0 shadow-sm ring-border transition-shadow hover:shadow-md"
         >
-          <CardContent className="p-6 flex justify-between items-center">
+          <CardContent className="flex items-center justify-between p-5">
             <div>
-              <p className="text-slate-400 text-sm">
+              <p className="text-sm font-medium text-muted-foreground">
                 {item.title}
               </p>
 
-              <h2 className="text-3xl font-bold text-white mt-2">
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-foreground">
                 {item.value}
               </h2>
             </div>
 
-            <div className="bg-blue-600/20 p-3 rounded-xl">
-              <item.icon className="text-blue-500" size={28} />
+            <div className={`flex size-11 items-center justify-center rounded-xl ${item.tone}`}>
+              <item.icon className="size-5" />
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { WandSparkles } from "lucide-react";
+import { Loader2, WandSparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,28 +134,25 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 };
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
+    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
 
       {/* Header */}
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-3 flex items-center gap-3">
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-
-          <WandSparkles
-            className="text-blue-500"
-            size={22}
-          />
-
+        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
+          <WandSparkles className="size-5 text-primary" />
         </div>
 
         <div>
 
-          <h2 className="text-xl font-semibold text-white">
-            Application Requirements
+          <h2 className="text-base font-semibold text-foreground">
+            {mode === "modify"
+              ? "Modify Application"
+              : "Application Requirements"}
           </h2>
 
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Describe what you want your application to do.
           </p>
 
@@ -165,7 +162,7 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 
       {/* Description */}
 
-      <p className="mb-4 text-sm leading-6 text-slate-400">
+      <p className="mb-4 text-sm leading-6 text-muted-foreground">
         Explain the application's features, users,
         pages, functionality, authentication,
         database requirements, and any other
@@ -194,21 +191,29 @@ Requirements:
 - Search books by title and filter by genre or status
 - Provide a dashboard with total, available and borrowed books
 - Create a clean and responsive UI`}
-        className="resize-none border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
+        className="min-h-64 flex-1 resize-none rounded-xl bg-background px-4 py-3 text-sm leading-6 dark:bg-background/60"
       />
 
       {/* Generate Button */}
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-4 flex justify-end">
 
         <Button
-          className="px-8"
+          className="h-10 gap-2 rounded-lg px-6 shadow-md shadow-primary/25"
           onClick={handleGenerate}
           disabled={loading}
         >
-          {loading
-            ? "⚙️ Generating Application..."
-            : "✨ Generate Application"}
+          {loading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Generating Application...
+            </>
+          ) : (
+            <>
+              <WandSparkles className="size-4" />
+              Generate Application
+            </>
+          )}
         </Button>
 
       </div>
@@ -217,4 +222,4 @@ Requirements:
   );
 }
 
-export default PromptBox;
+export default PromptBox;

@@ -3,6 +3,7 @@ import { Bell, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import ThemeToggle from "@/components/ThemeToggle/ThemeToggle";
 import { API_BASE_URL } from "@/lib/api";
 
 function Navbar() {
@@ -42,48 +43,50 @@ function Navbar() {
     .toUpperCase();
 
   return (
-    <header className="h-16 border-b border-slate-800 bg-slate-950 px-6 flex items-center justify-between">
-      
+    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-card/80 px-4 backdrop-blur sm:px-6 lg:px-8">
       {/* Left */}
-      <div className="relative w-80">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          size={18}
-        />
+      <div className="relative w-full max-w-md">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
         <Input
           placeholder="Search projects..."
-          className="pl-10 bg-slate-900 border-slate-700 text-white"
+          className="h-9 rounded-lg bg-muted/60 pl-9 dark:bg-muted/60"
         />
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <ThemeToggle />
 
-        <button className="relative p-2 rounded-lg hover:bg-slate-800 transition">
-          <Bell className="text-slate-300" size={20} />
+        <button
+          type="button"
+          aria-label="Notifications"
+          className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Bell className="size-4.5" />
 
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
+          <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-card"></span>
         </button>
+
+        <div className="h-6 w-px bg-border" />
 
         <div className="flex items-center gap-3">
           <Avatar>
-            <AvatarFallback>
+            <AvatarFallback className="bg-linear-to-br from-primary to-violet-500 text-xs font-semibold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>
 
-          <div>
-            <h3 className="text-sm font-semibold text-white">
+          <div className="hidden leading-tight sm:block">
+            <h3 className="text-sm font-semibold text-foreground">
               {userName}
             </h3>
 
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Developer
             </p>
           </div>
         </div>
-
       </div>
     </header>
   );

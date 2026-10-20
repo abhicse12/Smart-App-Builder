@@ -35,8 +35,8 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <p className="text-white">Checking authentication...</p>
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Checking authentication...</p>
       </div>
     );
   }
@@ -48,4 +48,4 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-export default ProtectedRoute;
+export default ProtectedRoute;

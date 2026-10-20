@@ -185,14 +185,11 @@ function ProjectDetails() {
 
   const handleDownload = async () => {
   try {
-    const token = localStorage.getItem("token");
-
+    // Authentication uses the HttpOnly cookie, like every other request
     const response = await fetch(
       `http://localhost:5000/api/projects/${id}/download`,
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: "include",
       }
     );
 

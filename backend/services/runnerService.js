@@ -1,6 +1,7 @@
 import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
+import { findUnreachableMongoUri } from "./sandboxEnv.js";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -52,9 +53,14 @@ const getDockerLogs = async (containerName, tail = 100) => {
       containerName,
     ]);
 
+    // docker logs writes the container's stdout and
+    // stderr to separate streams. Keep both, since
+    // crashes are usually printed to stderr.
     return {
       success: true,
-      logs: result.stdout || result.stderr || "",
+      logs: [result.stdout, result.stderr]
+        .filter(Boolean)
+        .join("\n"),
     };
   } catch (error) {
     return {
@@ -90,15 +96,51 @@ const getDockerHostPort = async (
 };
 
 // =====================================
+// Check whether any process inside the
+// container is running from processDir
+// (e.g. the backend's npm start / node)
+// =====================================
+
+const isProcessRunningInDir = async (
+  containerName,
+  processDir
+) => {
+  try {
+    await runCommand("docker", [
+      "exec",
+      containerName,
+      "sh",
+      "-c",
+      `for p in /proc/[0-9]*; do [ "$(readlink "$p/cwd" 2>/dev/null)" = "${processDir}" ] && exit 0; done; exit 1`,
+    ]);
+
+    return true;
+  } catch {
+    // No matching process, or container is not running
+    return false;
+  }
+};
+
+// =====================================
 // Host health check
+//
+// When containerName is provided, a failure
+// throws a RUNTIME_ERROR with Docker logs
+// (same format as waitForContainerHealth).
+//
+// When processDir is also provided, polling
+// stops early if no process is running from
+// that directory anymore.
 // =====================================
 
 const waitForHealth = async (
   url,
   serviceName,
-  attempts = 60
+  attempts = 60,
+  { containerName = null, processDir = null } = {}
 ) => {
   let lastError = null;
+  let missedProcessChecks = 0;
 
   for (
     let attempt = 1;
@@ -128,7 +170,47 @@ const waitForHealth = async (
   lastError = error.message;
 }
 
+    // Stop early if the service process has exited.
+    // Two consecutive misses are required to avoid
+    // false positives while the process is starting.
+    if (containerName && processDir) {
+      const processRunning =
+        await isProcessRunningInDir(
+          containerName,
+          processDir
+        );
+
+      missedProcessChecks = processRunning
+        ? 0
+        : missedProcessChecks + 1;
+
+      if (missedProcessChecks >= 2) {
+        console.log(
+          `❌ ${serviceName} process is no longer running. Stopping health checks.`
+        );
+
+        lastError =
+          `${serviceName} process exited before becoming healthy (last error: ${lastError})`;
+
+        break;
+      }
+    }
+
     await sleep(2000);
+  }
+
+  if (containerName) {
+    const logs =
+      await getDockerLogs(containerName);
+
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: serviceName,
+        healthError: lastError,
+        dockerLogs: logs.logs,
+      })
+    );
   }
 
   throw new Error(
@@ -383,9 +465,12 @@ const stopProject = async (projectId) => {
   );
 
   try {
+    // -v also removes the container's anonymous
+    // node_modules volumes
     await runCommand("docker", [
       "rm",
       "-f",
+      "-v",
       containerName,
     ]);
 
@@ -463,9 +548,12 @@ const runProject = async (projectId) => {
   // =====================================
 
   try {
+    // -v also removes the container's anonymous
+    // node_modules volumes
     await runCommand("docker", [
       "rm",
       "-f",
+      "-v",
       containerName,
     ]);
   } catch {
@@ -583,6 +671,12 @@ const runProject = async (projectId) => {
       "-v",
       `${projectRoot}:/app`,
 
+      // Keep node_modules inside the container (anonymous
+      // volume) so an interrupted npm install never leaves
+      // corrupted modules in the host project folder
+      "-v",
+      "/app/frontend/node_modules",
+
       "-p",
       "127.0.0.1::5173",
 
@@ -682,6 +776,20 @@ console.log("DEBUG docker port output:", portCheck.stdout);
 
     const frontendPort = 5173;
 
+    // backend/.env may point MONGO_URI at a Docker Compose host
+    // (e.g. mongodb://mongodb:27017) that does not exist in the
+    // sandbox. The file is not changed; the variable is blanked
+    // for this container only. Real external URIs are kept.
+    const unreachableMongoHost = findUnreachableMongoUri(
+      path.join(projectRoot, "backend", ".env")
+    );
+
+    if (unreachableMongoHost) {
+      console.warn(
+        `backend/.env sets MONGO_URI to sandbox-unreachable host "${unreachableMongoHost}"; starting with MONGO_URI unset (JSON mode).`
+      );
+    }
+
     await runCommand("docker", [
       "run",
       "-d",
@@ -703,6 +811,20 @@ console.log("DEBUG docker port output:", portCheck.stdout);
 
       "-v",
       `${projectRoot}:/app`,
+
+      // Keep node_modules inside the container (anonymous
+      // volumes) so an interrupted npm install never leaves
+      // corrupted modules in the host project folder
+      "-v",
+      "/app/backend/node_modules",
+
+      "-v",
+      "/app/frontend/node_modules",
+
+      // An empty MONGO_URI is not overridden by dotenv, so the
+      // backend falls back to JSON mode instead of hanging on an
+      // unreachable database
+      ...(unreachableMongoHost ? ["-e", "MONGO_URI="] : []),
 
       "-p",
       `127.0.0.1::${backendPort}`,
@@ -755,7 +877,12 @@ console.log("DEBUG docker port output:", portCheck.stdout);
 
     await waitForHealth(
       backendUrl,
-      "Node Backend"
+      "Node Backend",
+      60,
+      {
+        containerName,
+        processDir: "/app/backend",
+      }
     );
 
     // =====================================

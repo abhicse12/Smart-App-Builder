@@ -6,8 +6,30 @@
 const UI_REQUEST_PATTERN =
   /\b(ui|ux|design|redesign|style|styles|styling|css|tailwind|look|looks|looking|beautiful|attractive|appealing|pretty|modern|polish|layout|theme|colou?rs?|font|fonts|spacing|responsive|decent|ugly|nicer|better looking|visual|appearance)\b/i;
 
-export const isUiRequest = (userRequest = "") =>
-  UI_REQUEST_PATTERN.test(String(userRequest));
+// "improve the login and navbar": an improvement verb + a UI element
+const IMPROVE_PATTERN =
+  /\b(improve|improved|enhance|upgrade|beautify|revamp|refresh|restyle|polish|prettier|nicer|cleaner|better)\b/i;
+
+const UI_ELEMENT_PATTERN =
+  /\b(navbar|nav ?bar|navigation|menu|header|footer|sidebar|hero|banner|login|log in|signin|sign in|signup|sign up|register|page|pages|screen|card|cards|button|buttons|form|forms|dashboard|home|landing)\b/i;
+
+// Improvements that are about behaviour, not appearance
+const NON_UI_PATTERN =
+  /\b(security|secure|performance|speed|validation|validate|logic|api|endpoint|database|backend|bug|bugs|error|errors|fix|broken|crash|token|password reset|feature)\b/i;
+
+export const isUiRequest = (userRequest = "") => {
+  const request = String(userRequest);
+
+  if (UI_REQUEST_PATTERN.test(request)) {
+    return true;
+  }
+
+  return (
+    IMPROVE_PATTERN.test(request) &&
+    UI_ELEMENT_PATTERN.test(request) &&
+    !NON_UI_PATTERN.test(request)
+  );
+};
 
 export const UI_DESIGN_RULES = `
 ==================================================
@@ -37,14 +59,44 @@ Tailwind CSS v4 utility classes only.
    - Section title: text-xl font-semibold. Body: text-sm md:text-base.
    - Prices / key numbers: text-lg font-bold text-slate-900.
 
-4. Navigation
-   - Navbar: sticky top-0 z-40 border-b border-slate-200 bg-white/80
-     backdrop-blur. Logo with font-extrabold (gradient text allowed:
-     bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text
-     text-transparent). Links with hover and active states.
-   - Show the logged-in user's name/avatar and a clear Logout button;
-     show Login / Sign up buttons when logged out.
-   - Collapse links into a menu button on mobile (useState toggle).
+4. Navbar
+   - Shell: <header className="sticky top-0 z-50 border-b
+     border-slate-200/70 bg-white/80 backdrop-blur-lg">, inner
+     container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex
+     items-center justify-between gap-4. Same height on every page.
+   - Brand (left, links to "/"): a logo mark (size-9 rounded-xl
+     bg-gradient-to-br from-indigo-600 to-violet-600 text-white,
+     centered inline SVG icon or the first letter, shadow-md
+     shadow-indigo-500/30) followed by the app name in
+     text-lg font-extrabold tracking-tight text-slate-900.
+   - Links (center, hidden md:flex gap-1): use NavLink from
+     react-router-dom so the current page is marked. Inactive:
+     rounded-lg px-3 py-2 text-sm font-medium text-slate-600
+     hover:bg-slate-100 hover:text-slate-900. Active: bg-indigo-50
+     text-indigo-700. Keep the existing link targets.
+   - Right side, logged out: "Log in" as a ghost button (rounded-xl
+     px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100)
+     and "Sign up" as the primary button.
+   - Right side, logged in: an avatar circle (size-9 rounded-full
+     bg-gradient-to-br from-indigo-500 to-violet-500 text-sm
+     font-semibold text-white) with the user's initials, the name
+     (hidden sm:block text-sm font-medium text-slate-700) and Logout
+     as a small secondary button (rounded-xl border border-slate-200
+     px-3 py-1.5 text-sm hover:bg-slate-50, text-rose-600 allowed).
+     Use the existing user object and logout handler.
+   - If the app has a cart, show a cart icon button (relative size-10
+     rounded-xl hover:bg-slate-100) with a count badge (absolute
+     -top-1 -right-1 min-w-5 h-5 rounded-full bg-indigo-600 px-1
+     text-[11px] font-bold text-white grid place-items-center) using
+     the existing cart data; no badge when the count is 0.
+   - Mobile (below md): links and auth buttons move into a menu opened
+     by a hamburger button (md:hidden, inline SVG, aria-label,
+     aria-expanded). The open panel sits under the bar (border-t
+     bg-white px-4 py-3 space-y-1) with full-width links, and closes
+     when a link is clicked.
+
+   - Never show raw text like "abhii Logout" side by side without
+     spacing or button styling.
 
 5. Home / landing pages
    - Start with a hero: rounded-3xl gradient background
@@ -66,9 +118,41 @@ Tailwind CSS v4 utility classes only.
      bg-rose-50 px-4 py-3 text-sm text-rose-700.
 
 7. Auth pages (login / signup)
-   - Centered card (min-h-[calc(100vh-4rem)] flex items-center
-     justify-center), max-w-md, p-8, logo/title, subtitle, form,
-     full-width primary button, link to the other auth page.
+   - Page: min-h-[calc(100vh-4rem)] grid lg:grid-cols-2 gap-8 items-center
+     max-w-6xl mx-auto px-4 py-10.
+   - Left panel (hidden lg:flex): rounded-3xl bg-gradient-to-br
+     from-indigo-600 via-violet-600 to-fuchsia-600 p-10 text-white
+     relative overflow-hidden, with 2 decorative blurred circles
+     (absolute rounded-full bg-white/10 blur-2xl), a headline
+     (text-3xl font-bold), one supporting sentence (text-white/80) and
+     3 benefit rows (check icon in a size-6 rounded-full bg-white/20
+     badge + short text). Content is about the app's real purpose.
+   - Form card (right, or centered alone on small screens): w-full
+     max-w-md mx-auto rounded-3xl border border-slate-200 bg-white p-8
+     sm:p-10 shadow-xl shadow-slate-200/60.
+   - Card header: logo mark, title ("Welcome back" / "Create your
+     account") text-2xl font-bold tracking-tight, subtitle
+     text-sm text-slate-500 mt-1, then the form with space-y-5.
+   - Each field: <label> + a relative wrapper with a leading inline
+     SVG icon (absolute left-3.5 top-1/2 -translate-y-1/2 size-5
+     text-slate-400: mail, lock, user) and the input from rule 6 with
+     pl-11. Use type="email", autoComplete="email" /
+     "current-password" / "new-password" / "name", and autoFocus on
+     the first field.
+   - Password fields get a show/hide toggle button (absolute right-3,
+     text-slate-400 hover:text-slate-600, aria-label) that switches the
+     input type.
+   - Errors: if the component already has an error state, render it
+     in the alert style from rule 6 above the submit button.
+   - Submit: full-width primary button h-11; if a loading state exists,
+     show a small spinner (size-4 animate-spin rounded-full border-2
+     border-white/40 border-t-white) and disable the button while
+     loading.
+   - Below the form: "Don't have an account? Sign up" /
+     "Already have an account? Log in" in text-sm text-slate-500 with
+     the link in font-semibold text-indigo-600 hover:text-indigo-700.
+   - Do NOT add "Forgot password?", "Remember me" or social login
+     buttons unless that functionality already exists.
 
 8. Lists, cards and catalogs
    - Grid: grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4.
@@ -79,7 +163,9 @@ Tailwind CSS v4 utility classes only.
      full-width action button.
    - If an item has no image URL, render a gradient placeholder
      (bg-gradient-to-br from-indigo-100 to-violet-100) with the first
-     letter of the name, never a broken <img>.
+     letter of the name, never a broken <img>. Images that fail to
+     load must fall back too: keep an imgError state per card and set
+     it in onError, then render the placeholder instead of the <img>.
 
 9. Loading, empty and error states (every list/page that fetches data)
    - Loading: skeleton blocks (animate-pulse rounded-2xl bg-slate-200)
@@ -126,6 +212,12 @@ This request is about appearance. Change presentation only:
 - Keep every import, export, prop, state variable, effect, API call,
   route path, handler and context usage exactly as it is. Only change
   JSX structure, class names, static text and purely visual elements.
+  New state is allowed only for presentation (mobile menu open,
+  show password, image load error).
+- If the user names specific parts (e.g. "login page", "navbar",
+  "home page"), change only the files for those parts (login also
+  means signup, so both auth pages stay consistent). Otherwise restyle
+  every page.
 - If a component needs a new purely presentational helper (e.g. a
   Skeleton or EmptyState component), create it under
   frontend/src/components and import it with the exact path.

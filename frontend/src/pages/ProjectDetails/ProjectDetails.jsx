@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -43,7 +44,7 @@ function ProjectDetails() {
     const fetchProject = async () => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}`,
+      `${API_BASE_URL}/api/projects/${id}`,
       {
         method: "GET",
         credentials: "include",
@@ -69,7 +70,7 @@ function ProjectDetails() {
     const fetchProjectFiles = async () => {
   try {
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}/files`,
+      `${API_BASE_URL}/api/projects/${id}/files`,
       {
         method: "GET",
         credentials: "include",
@@ -114,7 +115,7 @@ function ProjectDetails() {
       setPreviewUrl("");
 
       const response = await fetch(
-        `http://localhost:5000/api/projects/${id}/run`,
+        `${API_BASE_URL}/api/projects/${id}/run`,
         {
           method: "POST",
           credentials: "include",
@@ -188,7 +189,7 @@ function ProjectDetails() {
   try {
     // Authentication uses the HttpOnly cookie, like every other request
     const response = await fetch(
-      `http://localhost:5000/api/projects/${id}/download`,
+      `${API_BASE_URL}/api/projects/${id}/download`,
       {
         credentials: "include",
       }

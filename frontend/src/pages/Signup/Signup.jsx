@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Sparkles, User, Mail, Lock } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 function Signup() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ function Signup() {
       setLoading(true);
 
       const response = await fetch(
-        "http://localhost:5000/api/auth/signup",
+        `${API_BASE_URL}/api/auth/signup`,
         {
           method: "POST",
 

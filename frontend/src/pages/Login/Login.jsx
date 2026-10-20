@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Sparkles, Mail, Lock } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ function Login() {
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/auth/login",
+        `${API_BASE_URL}/api/auth/login`,
         {
           method: "POST",
           headers: {

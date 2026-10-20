@@ -10,6 +10,14 @@ const MAX_PASSWORD_LENGTH = 128;
 const isNonEmptyString = (value) =>
   typeof value === "string" && value.trim().length > 0;
 
+// Auth cookie attributes shared by login and logout. `secure` (HTTPS
+// only) is enabled in production; local development runs on http.
+const authCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+});
+
 // ==============================
 // SIGNUP
 // ==============================
@@ -141,9 +149,7 @@ export const login = async (req, res) => {
 
     // JWT ko HttpOnly Cookie mein store karo
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: false, // localhost ke liye false
-      sameSite: "lax",
+      ...authCookieOptions(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
@@ -207,11 +213,8 @@ export const getMe = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: false, // localhost
-      sameSite: "lax",
-    });
+    // Same attributes as when the cookie was set, or it is not removed
+    res.clearCookie("token", authCookieOptions());
 
     res.status(200).json({
       success: true,

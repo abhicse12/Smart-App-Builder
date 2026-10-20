@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL } from "@/lib/api";
 
 function NewProject({ onClose, onProjectCreated }) {
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ function NewProject({ onClose, onProjectCreated }) {
 
   try {
     const response = await fetch(
-      "http://localhost:5000/api/projects",
+      `${API_BASE_URL}/api/projects`,
       {
         method: "POST",
         headers: {

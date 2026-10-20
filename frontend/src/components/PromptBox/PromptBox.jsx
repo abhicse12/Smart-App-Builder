@@ -4,6 +4,7 @@ import { WandSparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE_URL } from "@/lib/api";
 
 function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
   const { id } = useParams();
@@ -39,8 +40,8 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
     const isModify = mode === "modify";
 
     const url = isModify
-      ? `http://localhost:5000/api/projects/${id}/modify`
-      : "http://localhost:5000/api/generate";
+      ? `${API_BASE_URL}/api/projects/${id}/modify`
+      : `${API_BASE_URL}/api/generate`;
 
     const body = isModify
       ? {

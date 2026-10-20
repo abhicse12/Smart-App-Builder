@@ -3,6 +3,7 @@ import { Bell, Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { API_BASE_URL } from "@/lib/api";
 
 function Navbar() {
   const [user, setUser] = useState(null);
@@ -11,7 +12,7 @@ function Navbar() {
     const fetchCurrentUser = async () => {
       try {
         const response = await fetch(
-          "http://localhost:5000/api/auth/me",
+          `${API_BASE_URL}/api/auth/me`,
           {
             method: "GET",
             credentials: "include",

@@ -492,6 +492,11 @@ export const deleteProject = async (req, res) => {
       });
     }
 
+    // Stop and remove the project's Docker container (and its
+    // node_modules volumes) before deleting the mounted folder.
+    // stopProject ignores "container not running".
+    await stopProject(id);
+
     try {
       await fsPromises.rm(projectRoot, {
         recursive: true,

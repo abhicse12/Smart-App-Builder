@@ -34,8 +34,26 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 
     console.log("Starting application generation...");
 
+    // Modify uses the protected project modify endpoint.
+    // New generation keeps using /api/generate.
+    const isModify = mode === "modify";
+
+    const url = isModify
+      ? `http://localhost:5000/api/projects/${id}/modify`
+      : "http://localhost:5000/api/generate";
+
+    const body = isModify
+      ? {
+          userRequest: prompt.trim(),
+        }
+      : {
+          projectId: id,
+          prompt: prompt.trim(),
+          mode: mode,
+        };
+
     const response = await fetch(
-      "http://localhost:5000/api/generate",
+      url,
       {
         method: "POST",
 
@@ -46,11 +64,7 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         // HttpOnly cookie automatically send hogi
         credentials: "include",
 
-        body: JSON.stringify({
-          projectId: id,
-          prompt: prompt.trim(),
-          mode: mode,
-        }),
+        body: JSON.stringify(body),
       }
     );
 

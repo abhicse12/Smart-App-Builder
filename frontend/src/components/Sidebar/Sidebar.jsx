@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   FolderKanban,
   History,
-  Settings,
   LogOut,
   Sparkles,
 } from "lucide-react";
@@ -25,10 +24,6 @@ const menuItems = [
     title: "History",
     icon: History,
     path: "/history",
-  },
-  {
-    title: "Settings",
-    icon: Settings,
   },
 ];
 

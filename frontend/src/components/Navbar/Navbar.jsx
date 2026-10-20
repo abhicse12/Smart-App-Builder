@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -57,16 +57,6 @@ function Navbar() {
       {/* Right */}
       <div className="flex items-center gap-3 sm:gap-4">
         <ThemeToggle />
-
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Bell className="size-4.5" />
-
-          <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-card"></span>
-        </button>
 
         <div className="h-6 w-px bg-border" />
 

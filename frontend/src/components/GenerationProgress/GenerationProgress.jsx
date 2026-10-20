@@ -40,7 +40,7 @@ function GenerationProgress({ agentStep }) {
   const completed = agentStep >= 3;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <div className="glass float-in rounded-2xl p-5" style={{ "--d": "200ms" }}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-foreground">
@@ -63,9 +63,9 @@ function GenerationProgress({ agentStep }) {
         </span>
       </div>
 
-      <div className="mb-5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
         <div
-          className="h-full rounded-full bg-linear-to-r from-primary to-violet-500 transition-all duration-700"
+          className="h-full rounded-full bg-linear-to-r from-indigo-500 via-violet-500 to-pink-500 shadow-[0_0_12px] shadow-violet-500/60 transition-all duration-700"
           style={{ width: `${progress}%` }}
         />
       </div>

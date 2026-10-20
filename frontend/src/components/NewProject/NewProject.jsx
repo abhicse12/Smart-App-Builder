@@ -100,11 +100,11 @@ function NewProject({ onClose, onProjectCreated }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/30 px-4 backdrop-blur-sm dark:bg-black/60"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/20 px-4 backdrop-blur-md animate-in fade-in duration-200 dark:bg-black/50"
       onClick={onClose}
     >
       <div
-        className="max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-card p-6 shadow-2xl"
+        className="glass-strong pop-in max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-3xl p-6 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
 
@@ -145,7 +145,7 @@ function NewProject({ onClose, onProjectCreated }) {
               placeholder="e.g. AI Resume Builder"
               required
               autoFocus
-              className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/30"
+              className="mt-1.5 h-10 w-full rounded-xl border px-3 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/30"
             />
           </div>
 
@@ -169,10 +169,10 @@ function NewProject({ onClose, onProjectCreated }) {
                     key={tech}
                     type="button"
                     onClick={() => handleTechToggle(tech)}
-                    className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition-all ${
                       selected
-                        ? "border-primary bg-primary/10 font-medium text-primary"
-                        : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        ? "border-primary bg-primary/10 font-medium text-primary shadow-md shadow-primary/15"
+                        : "border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5 text-muted-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -215,17 +215,17 @@ function NewProject({ onClose, onProjectCreated }) {
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-2 border-t border-border pt-4">
+          <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
             <Button
               type="button"
               variant="outline"
-              className="h-9 px-4"
+              className="h-9 rounded-xl px-4"
               onClick={onClose}
             >
               Cancel
             </Button>
 
-            <Button type="submit" className="h-9 px-4">
+            <Button type="submit" className="h-9 rounded-xl px-5">
               Create Project
             </Button>
           </div>

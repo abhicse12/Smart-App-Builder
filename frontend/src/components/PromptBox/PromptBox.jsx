@@ -134,14 +134,14 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 };
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+    <div className="glass float-in flex h-full flex-col rounded-2xl p-5 sm:p-6">
 
       {/* Header */}
 
       <div className="mb-3 flex items-center gap-3">
 
-        <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10">
-          <WandSparkles className="size-5 text-primary" />
+        <div className="btn-glow flex size-10 items-center justify-center rounded-xl">
+          <WandSparkles className="size-5 text-white" />
         </div>
 
         <div>
@@ -191,7 +191,7 @@ Requirements:
 - Search books by title and filter by genre or status
 - Provide a dashboard with total, available and borrowed books
 - Create a clean and responsive UI`}
-        className="min-h-64 flex-1 resize-none rounded-xl bg-background px-4 py-3 text-sm leading-6 dark:bg-background/60"
+        className="min-h-64 flex-1 resize-none rounded-xl px-4 py-3 text-sm leading-6 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5"
       />
 
       {/* Generate Button */}
@@ -199,7 +199,7 @@ Requirements:
       <div className="mt-4 flex justify-end">
 
         <Button
-          className="h-10 gap-2 rounded-lg px-6 shadow-md shadow-primary/25"
+          className="h-10 gap-2 rounded-xl px-6 transition-transform hover:scale-[1.03] active:scale-[0.98]"
           onClick={handleGenerate}
           disabled={loading}
         >

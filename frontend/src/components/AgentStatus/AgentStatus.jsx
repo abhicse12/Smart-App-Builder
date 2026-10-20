@@ -55,7 +55,7 @@ function AgentStatus({ isGenerating, agentStep }) {
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <div className="glass float-in rounded-2xl p-5" style={{ "--d": "120ms" }}>
       <h2 className="mb-3 text-sm font-semibold text-foreground">
         AI Agent Status
       </h2>
@@ -64,10 +64,14 @@ function AgentStatus({ isGenerating, agentStep }) {
         {agents.map((agent) => (
           <div
             key={agent.name}
-            className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2.5"
+            className={`glass-inset flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-300 ${
+              agent.status === "Running"
+                ? "scale-[1.02] ring-2 ring-primary/40 shadow-lg shadow-primary/20"
+                : ""
+            }`}
           >
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <agent.icon className="size-4 text-primary" />
+            <div className="btn-glow flex size-8 shrink-0 items-center justify-center rounded-lg">
+              <agent.icon className="size-4 text-white" />
             </div>
 
             <div className="min-w-0 flex-1">

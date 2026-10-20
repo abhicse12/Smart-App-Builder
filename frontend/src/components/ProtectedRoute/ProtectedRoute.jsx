@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { API_BASE_URL } from "@/lib/api";
+import Wallpaper from "@/components/Wallpaper/Wallpaper";
 
 function ProtectedRoute({ children }) {
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,8 @@ function ProtectedRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
+      <div className="flex min-h-dvh items-center justify-center">
+        <Wallpaper />
         <p className="text-sm text-muted-foreground">Checking authentication...</p>
       </div>
     );

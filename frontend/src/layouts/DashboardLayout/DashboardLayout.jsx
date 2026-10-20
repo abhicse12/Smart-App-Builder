@@ -1,16 +1,19 @@
 import Sidebar from "@/components/Sidebar/Sidebar";
 import Navbar from "@/components/Navbar/Navbar";
+import Wallpaper from "@/components/Wallpaper/Wallpaper";
 
 function DashboardLayout({ children }) {
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-dvh w-full gap-3 overflow-hidden p-3 text-foreground">
+      <Wallpaper />
+
       <Sidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
         <Navbar />
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <main className="-mx-3 flex-1 overflow-y-auto px-3">
+          <div className="w-full py-3 sm:px-2 lg:px-4">
             {children}
           </div>
         </main>

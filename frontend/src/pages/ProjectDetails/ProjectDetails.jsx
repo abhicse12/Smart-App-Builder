@@ -286,7 +286,7 @@ function ProjectDetails() {
           Project Header
       ========================================= */}
 
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-linear-to-br from-primary/10 via-card to-card p-6 shadow-sm">
+      <div className="glass float-in relative overflow-hidden rounded-3xl p-6">
         <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-500/10" />
 
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -316,7 +316,7 @@ function ProjectDetails() {
                 {project.techStack.map((tech) => (
                   <span
                     key={tech}
-                    className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
+                    className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:text-secondary-foreground"
                   >
                     {tech}
                   </span>
@@ -354,7 +354,7 @@ function ProjectDetails() {
         <div className="space-y-6">
           {/* Run Project */}
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="glass float-in rounded-2xl p-5" style={{ "--d": "60ms" }}>
             <h2 className="text-sm font-semibold text-foreground">
               Run Project
             </h2>
@@ -367,7 +367,7 @@ function ProjectDetails() {
             <button
               onClick={handleRunProject}
               disabled={isRunning}
-              className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-success text-sm font-medium text-white shadow-md shadow-success/20 transition hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50 dark:text-background"
+              className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 text-sm font-medium text-white shadow-lg shadow-emerald-500/30 transition hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isRunning ? (
                 <>
@@ -407,7 +407,7 @@ function ProjectDetails() {
       ========================================= */}
 
       {previewUrl && (
-        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="glass float-in mt-6 overflow-hidden rounded-2xl">
           {/* Preview Header */}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
@@ -425,7 +425,7 @@ function ProjectDetails() {
               href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              className="glass-inset flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
             >
               <ExternalLink className="size-3.5" />
               Open in New Tab
@@ -456,7 +456,7 @@ function ProjectDetails() {
 
           <button
             onClick={handleDownload}
-            className="flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground shadow-md shadow-primary/25 transition hover:bg-primary/90"
+            className="btn-glow flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-transform hover:scale-[1.03] active:scale-[0.98]"
           >
             <Download className="size-4" />
             Download ZIP
@@ -468,7 +468,7 @@ function ProjectDetails() {
             Loading files...
           </p>
         ) : files.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+          <div className="glass rounded-2xl p-10 text-center">
             <FolderOpen className="mx-auto size-8 text-muted-foreground/60" />
 
             <p className="mt-3 text-sm text-muted-foreground">
@@ -481,7 +481,7 @@ function ProjectDetails() {
                 File Explorer
             ===================================== */}
 
-            <div className="flex max-h-[75vh] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:col-span-4 2xl:col-span-3">
+            <div className="glass float-in flex max-h-[75vh] flex-col overflow-hidden rounded-2xl lg:col-span-4 2xl:col-span-3">
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
                 <h3 className="text-sm font-semibold text-foreground">
                   Files
@@ -504,7 +504,7 @@ function ProjectDetails() {
                       selectedFile?.path ===
                       file.path
                         ? "bg-primary/10 font-medium text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                        : "text-muted-foreground hover:translate-x-0.5 hover:bg-white/60 hover:text-foreground dark:hover:bg-white/5"
                     }`}
                   >
                     <FileCode2 className="size-3.5 shrink-0" />
@@ -521,7 +521,7 @@ function ProjectDetails() {
                 Code Viewer
             ===================================== */}
 
-            <div className="flex max-h-[75vh] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:col-span-8 2xl:col-span-9">
+            <div className="glass float-in flex max-h-[75vh] flex-col overflow-hidden rounded-2xl lg:col-span-8 2xl:col-span-9">
               <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
                 <span className="truncate font-mono text-xs text-muted-foreground">
                   {selectedFile?.path ||
@@ -531,7 +531,7 @@ function ProjectDetails() {
                 <button
                   onClick={handleCopy}
                   disabled={!selectedFile}
-                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  className="glass-inset flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   {copied ? (
                     <>
@@ -547,7 +547,7 @@ function ProjectDetails() {
                 </button>
               </div>
 
-              <pre className="flex-1 overflow-auto bg-muted/40 p-4 font-mono text-[13px] leading-6 text-foreground/90">
+              <pre className="flex-1 overflow-auto bg-white/35 p-4 dark:bg-black/25 [&_code]:font-mono font-mono text-[13px] leading-6 text-foreground/90">
                 <code>
                   {selectedFile?.content ||
                     "No content"}

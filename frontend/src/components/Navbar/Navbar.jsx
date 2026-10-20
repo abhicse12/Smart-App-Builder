@@ -43,14 +43,14 @@ function Navbar() {
     .toUpperCase();
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border bg-card/80 px-4 backdrop-blur sm:px-6 lg:px-8">
+    <header className="glass float-in relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 rounded-2xl px-3 sm:px-4">
       {/* Left */}
       <div className="relative w-full max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
         <Input
           placeholder="Search projects..."
-          className="h-9 rounded-lg bg-muted/60 pl-9 dark:bg-muted/60"
+          className="h-9 rounded-xl pl-9 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5"
         />
       </div>
 
@@ -61,8 +61,8 @@ function Navbar() {
         <div className="h-6 w-px bg-border" />
 
         <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback className="bg-linear-to-br from-primary to-violet-500 text-xs font-semibold text-white">
+          <Avatar className="ring-2 ring-white/70 dark:ring-white/10">
+            <AvatarFallback className="btn-glow text-xs font-semibold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>

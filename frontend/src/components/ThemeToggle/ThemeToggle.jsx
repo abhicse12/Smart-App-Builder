@@ -16,7 +16,7 @@ function ThemeToggle({ className }) {
       title={`Switch to ${isDark ? "light" : "dark"} theme`}
       onClick={toggleTheme}
       className={cn(
-        "relative inline-flex h-8 w-15 shrink-0 items-center rounded-full border border-border bg-muted p-0.5 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring",
+        "relative inline-flex h-8 w-15 shrink-0 items-center rounded-full border border-white/70 bg-white/50 p-0.5 backdrop-blur dark:border-white/10 dark:bg-white/5 transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring",
         className
       )}
     >

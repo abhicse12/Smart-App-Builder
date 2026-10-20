@@ -64,7 +64,7 @@ function History() {
         </div>
 
         {!loading && !error && (
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+          <span className="glass-inset rounded-full px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
             {projects.length} deleted project
             {projects.length !== 1 ? "s" : ""}
           </span>
@@ -81,9 +81,9 @@ function History() {
           {error}
         </div>
       ) : projects.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-xl bg-primary/10">
-            <HistoryIcon className="size-6 text-primary" />
+        <div className="glass float-in rounded-2xl p-10 text-center">
+          <div className="btn-glow mx-auto flex size-12 items-center justify-center rounded-2xl">
+            <HistoryIcon className="size-6 text-white" />
           </div>
 
           <h3 className="mt-4 text-base font-semibold text-foreground">
@@ -95,10 +95,10 @@ function History() {
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="glass float-in overflow-hidden rounded-2xl">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wider text-muted-foreground">
+              <thead className="border-b border-border bg-white/40 text-xs uppercase dark:bg-white/5 tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3 font-semibold">Project</th>
                   <th className="px-5 py-3 font-semibold">Tech Stack</th>
@@ -108,10 +108,11 @@ function History() {
               </thead>
 
               <tbody className="divide-y divide-border">
-                {projects.map((project) => (
+                {projects.map((project, index) => (
                   <tr
                     key={project._id}
-                    className="transition-colors hover:bg-muted/40"
+                    style={{ "--d": `${150 + Math.min(index, 15) * 50}ms` }}
+                    className="float-in transition-colors hover:bg-white/50 dark:hover:bg-white/5"
                   >
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
@@ -139,7 +140,7 @@ function History() {
                           {project.techStack.map((tech) => (
                             <span
                               key={tech}
-                              className="flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground"
+                              className="flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:text-secondary-foreground"
                             >
                               <Code2 className="size-3" />
                               {tech}

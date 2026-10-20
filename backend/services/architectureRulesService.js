@@ -1,5 +1,6 @@
 import fs from "fs/promises";
 import path from "path";
+import { detectTechAreas } from "./techStackMatcher.js";
 
 const ARCHITECTURE_DIR = path.join(
   process.cwd(),
@@ -7,78 +8,24 @@ const ARCHITECTURE_DIR = path.join(
   "architecture"
 );
 
-const normalizeTechStack = (techStack = []) => {
-  if (!Array.isArray(techStack)) {
-    return [];
-  }
-
-  return techStack.map((tech) =>
-    String(tech).trim().toLowerCase()
-  );
-};
+// Areas that have a rule file in rag/architecture (in load order)
+const RULE_FILE_AREAS = [
+  "static-web",
+  "react-vite",
+  "mern",
+  "python-fastapi",
+  "java-springboot",
+];
 
 const getArchitectureRuleFiles = (techStack = []) => {
-  const normalized = normalizeTechStack(techStack);
+  const areas = detectTechAreas(techStack);
 
-  const files = ["common.md"];
-
-  const hasReact = normalized.some(
-    (tech) =>
-      tech.includes("react") ||
-      tech.includes("vite")
-  );
-
-  const isStaticWeb =
-    normalized.some(
-      (tech) =>
-        tech.includes("html") ||
-        tech.includes("css") ||
-        tech.includes("javascript") ||
-        tech.includes("static")
-    ) && !hasReact;
-
-  const isMERN =
-    normalized.some(
-      (tech) =>
-        tech.includes("mern") ||
-        tech.includes("mongodb")
-    );
-
-  const isPythonFastAPI =
-    normalized.some(
-      (tech) =>
-        tech.includes("python") ||
-        tech.includes("fastapi")
-    );
-
-  const isJavaSpringBoot =
-    normalized.some(
-      (tech) =>
-        tech.includes("java") ||
-        tech.includes("spring")
-    );
-
-  if (isStaticWeb) {
-    files.push("static-web.md");
-  }
-
-  if (hasReact) {
-    files.push("react-vite.md");
-  }
-
-  if (isMERN) {
-    files.push("mern.md");
-  }
-
-  if (isPythonFastAPI) {
-    files.push("python-fastapi.md");
-  }
-
-  if (isJavaSpringBoot) {
-    files.push("java-springboot.md");
-  }
-
-  return files;
+  return [
+    "common.md",
+    ...RULE_FILE_AREAS.filter((area) => areas.has(area)).map(
+      (area) => `${area}.md`
+    ),
+  ];
 };
 
 const loadArchitectureRules = async (

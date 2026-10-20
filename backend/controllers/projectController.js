@@ -15,6 +15,7 @@ import writeProjectFiles from "../services/writeProjectFiles.js";
 import modifyValidatorService from "../services/modifyValidatorService.js";
 import validateProject from "../services/validatorService.js";
 import runAuthSmokeTest from "../services/authSmokeTest.js";
+import { isUiRequest } from "../services/uiDesignRules.js";
 import fixProject from "../services/fixerService.js";
 import syncProjectFiles from "../services/syncProjectFiles.js";
 import { errorDetails } from "../utils/errorResponse.js";
@@ -730,6 +731,14 @@ export const modifyProject = async (req, res) => {
     // SEND EXISTING PROJECT TO AI
     // ==================================================
 
+    // UI requests get the design system and may only restyle
+    // presentational frontend files
+    const uiChange = isUiRequest(userRequest);
+
+    if (uiChange) {
+      console.log("UI modification: applying the UI design system");
+    }
+
     const modifiedProject =
       await modifyProjectService({
         projectName: project.name,
@@ -738,6 +747,7 @@ export const modifyProject = async (req, res) => {
         files: project.files || [],
         userRequest,
         knownProblems: initialValidation.errors,
+        uiChange,
       });
 
     if (
@@ -830,8 +840,25 @@ export const modifyProject = async (req, res) => {
       )
     );
 
+    // A UI change must not touch backend or config files
+    const modificationFiles = uiChange
+      ? modifiedProject.files.filter((file) => {
+          const inFrontendSource = /^frontend\/src\//.test(
+            String(file?.path || "").replace(/\\/g, "/")
+          );
+
+          if (!inFrontendSource) {
+            console.warn(
+              `UI modification: ignoring non-frontend file ${file?.path}`
+            );
+          }
+
+          return inFrontendSource;
+        })
+      : modifiedProject.files;
+
     const changedFiles = new Set(
-      applyFiles(modifiedProject.files)
+      applyFiles(modificationFiles)
     );
 
     console.log(

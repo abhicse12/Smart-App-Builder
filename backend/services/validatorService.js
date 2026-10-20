@@ -4,6 +4,7 @@ import validateRuntime from "./validators/runtimeValidator.js";
 import validateFeatureCompleteness from "./validators/featureValidator.js";
 import validateApiContract from "./validators/apiContractValidator.js";
 import validateModuleExports from "./validators/moduleExportsValidator.js";
+import validateDataFiles from "./validators/dataFilesValidator.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -49,6 +50,12 @@ const validateProject = (project) => {
 
   // Imported names must be exported by the imported local file
   validateModuleExports({
+    files,
+    errors,
+  });
+
+  // backend/data/*.json valid, and read-only catalogs seeded
+  validateDataFiles({
     files,
     errors,
   });

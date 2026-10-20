@@ -5,6 +5,23 @@ import {
   stripUnreachableMongoUri,
 } from "./sandboxEnv.js";
 
+// True when a runtime data file holds records worth keeping
+const hasRuntimeData = (content) => {
+  try {
+    const data = JSON.parse(content);
+
+    if (Array.isArray(data)) {
+      return data.length > 0;
+    }
+
+    return data !== null && typeof data === "object"
+      ? Object.keys(data).length > 0
+      : true;
+  } catch {
+    return false;
+  }
+};
+
 const writeProjectFiles = async (projectId, files) => {
   if (!projectId) {
     throw new Error("Project ID is required");
@@ -70,17 +87,24 @@ const writeProjectFiles = async (projectId, files) => {
         relativePath.endsWith(".json"));
 
     if (isRuntimeDataFile) {
-      try {
-        await fs.access(filePath);
+      let existing = null;
 
+      try {
+        existing = await fs.readFile(filePath, "utf8");
+      } catch {
+        // File does not exist.
+        // Create initial demo data.
+      }
+
+      // Keep files that hold real data. A broken file (e.g. a truncated
+      // "[") or an empty [] / {} has nothing to lose, so new seed data
+      // from generation or modification may replace it.
+      if (existing !== null && hasRuntimeData(existing)) {
         console.log(
           `Skipping existing runtime data file: ${normalizedPath}`
         );
 
         continue;
-      } catch {
-        // File does not exist.
-        // Create initial demo data.
       }
     }
 

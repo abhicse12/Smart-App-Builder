@@ -259,7 +259,16 @@ Describing it in comments is NOT sufficient.
 4. JSON data files:
 
    - If backend/data/*.json files are in REQUESTED FILES,
-     generate them with valid JSON (e.g. [] or seed records).
+     generate them as COMPLETE, valid JSON arrays (never truncated).
+   - Collections the app DISPLAYS but users do not create in the UI
+     (product catalogs, menus, courses, articles, rooms, etc.) MUST be
+     seeded with 8-12 realistic records. Use exactly the fields the
+     model and the frontend use, a unique string "_id" per record,
+     and for images an https URL such as
+     https://picsum.photos/seed/<short-slug>/600/400 .
+     Keep each record short so the file is never cut off.
+   - Collections users create themselves (users, orders, carts,
+     history) start as [].
    - The JSON storage code MUST create the backend/data directory
      and any missing JSON file at runtime (with []) before reading,
      so the app works even if those files were not generated.

@@ -3,6 +3,7 @@ import {
   API_CONVENTIONS,
   usesApiConventions,
 } from "./generationContract.js";
+import { UI_DESIGN_RULES } from "./uiDesignRules.js";
 
 const modifyProject = async ({
   projectName,
@@ -11,6 +12,7 @@ const modifyProject = async ({
   files,
   userRequest,
   knownProblems = [],
+  uiChange = false,
 }) => {
   // Problems the static validator found in the current code. A request
   // like "fix the login" is vague; these tell the agent what is broken.
@@ -74,6 +76,7 @@ USER REQUEST
 ==================================================
 
 ${userRequest}
+${uiChange ? UI_DESIGN_RULES : ""}
 ${knownProblemsSection}
 ${conventionsSection}
 

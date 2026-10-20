@@ -626,20 +626,6 @@ export const modifyProject = async (req, res) => {
       });
     }
 
-    // ==================================================
-    // TEMPORARY PACKAGE DEBUG
-    // ==================================================
-
-    const storedPackage = project.files.find(
-      (file) =>
-        file.path === "frontend/package.json"
-    );
-
-    console.log(
-      "PACKAGE.JSON FROM MONGODB:",
-      storedPackage?.content
-    );
-
     console.log(`Modifying project: ${id}`);
     console.log(`User request: ${userRequest}`);
 

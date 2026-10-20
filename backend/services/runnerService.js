@@ -163,12 +163,13 @@ const waitForHealth = async (
       }
 
       lastError = `HTTP ${response.status}`;
-    }catch (error) {
-  console.error("HEALTH CHECK FETCH ERROR:", error);
-  console.error("HEALTH CHECK URL:", url);
-
-  lastError = error.message;
-}
+    } catch (error) {
+      // Expected while the app is still starting; one short line
+      lastError = error.cause?.code || error.message;
+      console.log(
+        `${serviceName} not reachable yet (${lastError})`
+      );
+    }
 
     // Stop early if the service process has exited.
     // Two consecutive misses are required to avoid
@@ -712,15 +713,6 @@ const runProject = async (projectId) => {
         containerName,
         5173
       );
-    console.log("DEBUG Docker mapped port:", frontendHostPort);
-
-    const portCheck = await runCommand("docker", [
-      "port",
-      containerName,
-      "5173/tcp",
-    ]);
-
-console.log("DEBUG docker port output:", portCheck.stdout);
 
     console.log(
       `React frontend mapped to host port: ${frontendHostPort}`
@@ -734,7 +726,7 @@ console.log("DEBUG docker port output:", portCheck.stdout);
     // =====================================
 
     const frontendUrl = `http://127.0.0.1:${frontendHostPort}`;
-    console.log("DEBUG frontendUrl:", frontendUrl);
+
     await waitForHealth(
       frontendUrl,
       "React Frontend"

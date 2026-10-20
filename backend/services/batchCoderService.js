@@ -124,45 +124,6 @@ ABSOLUTE RULES:
 8. Before returning JSON, compare your generated file paths against REQUESTED FILES and remove every extra file.
 
 ==================================================
-BILLING RULES
-==================================================
-
-This application uses DAILY billing.
-
-NEVER convert the billing system to hourly billing.
-
-Use these concepts:
-
-- numberOfDays
-- nurseDailyRate
-- patientDailyRate
-- nurseAmount
-- patientAmount
-- companyMargin
-
-Calculations:
-
-Patient Amount =
-numberOfDays × patientDailyRate
-
-Nurse Amount =
-numberOfDays × nurseDailyRate
-
-Company Margin =
-patientAmount - nurseAmount
-
-Do NOT use:
-
-- hoursWorked
-- hourlyRate
-- hourlyRatePaidToNurse
-- hourlyRateChargedToPatient
-
-unless they explicitly exist in the architecture blueprint.
-
-Billing calculations MUST be performed on the backend.
-
-==================================================
 ROUTE / CONTROLLER CONSISTENCY
 ==================================================
 

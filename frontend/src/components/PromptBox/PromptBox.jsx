@@ -183,16 +183,14 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
         disabled={loading}
         placeholder={`Example:
 
-Create a patient management application for a healthcare company.
+Create a library management application.
 
 Requirements:
-- Admin can add, update and delete patients
-- Admin can add and manage nurses
-- Store patient and nurse information in MongoDB
-- Calculate billing based on number of days
-- Include authentication
-- Provide a dashboard with patient, nurse and billing statistics
-- Use React, Node.js, Express and MongoDB
+- Users can sign up, log in and log out
+- Users can add, edit and delete books
+- Each book has a title, author, genre and status (available / borrowed)
+- Search books by title and filter by genre or status
+- Provide a dashboard with total, available and borrowed books
 - Create a clean and responsive UI`}
         className="resize-none border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
       />

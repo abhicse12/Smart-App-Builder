@@ -394,46 +394,6 @@ as described below. Do NOT return { "files": [] } for it.
    regenerate the project.
 
 ==================================================
-BILLING RULES
-==================================================
-
-Only apply these rules if the project actually contains
-billing functionality.
-
-This application uses DAILY billing.
-
-The billing system MUST use:
-
-- numberOfDays
-- nurseDailyRate
-- patientDailyRate
-- nurseAmount
-- patientAmount
-- companyMargin
-
-Calculations:
-
-Patient Amount =
-numberOfDays × patientDailyRate
-
-Nurse Amount =
-numberOfDays × nurseDailyRate
-
-Company Margin =
-patientAmount - nurseAmount
-
-NEVER introduce:
-
-- hoursWorked
-- hourlyRate
-- hourlyRatePaidToNurse
-- hourlyRateChargedToPatient
-
-Billing calculations MUST happen on the backend.
-
-Do NOT add billing logic to projects that do not require billing.
-
-==================================================
 ROUTE / CONTROLLER CONSISTENCY
 ==================================================
 

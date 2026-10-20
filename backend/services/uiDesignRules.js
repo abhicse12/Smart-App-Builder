@@ -206,9 +206,15 @@ UI-ONLY CHANGE (KEEP THE APP WORKING)
 
 This request is about appearance. Change presentation only:
 
-- Return ONLY files under frontend/src (pages, components, App.jsx
-  layout wrappers, index.css). Never return backend files,
-  package.json or config files.
+- Return ONLY presentation files: frontend/src (React pages,
+  components, App.jsx layout wrappers, index.css), or for projects
+  without React: templates/*.html and static/*.css (Python/Java web
+  apps) or the root .html/.css files of a static site. Never return
+  server code, backend files, package.json or config files.
+- Projects without Tailwind (plain CSS, e.g. Python/Java web apps or
+  static sites): apply the same design system by writing equivalent
+  CSS classes in the existing stylesheet and using them in the HTML.
+  Do not add Tailwind or JavaScript there unless already present.
 - Keep every import, export, prop, state variable, effect, API call,
   route path, handler and context usage exactly as it is. Only change
   JSX structure, class names, static text and purely visual elements.

@@ -4,7 +4,11 @@ import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/api";
-import { getConsoleLanguage, languageLabel } from "@/lib/projectType";
+import {
+  getBasicWebLanguage,
+  getConsoleLanguage,
+  languageLabel,
+} from "@/lib/projectType";
 
 function NewProject({ onClose, onProjectCreated }) {
   const navigate = useNavigate();
@@ -201,6 +205,19 @@ function NewProject({ onClose, onProjectCreated }) {
                 {languageLabel(getConsoleLanguage(formData.techStack))} only:
                 a basic console program (runs in the terminal, with tests).
                 Add web technologies like React or HTML for a web app.
+              </p>
+            )}
+
+            {/* Python / Java + HTML/CSS: built-in server, logic in that language */}
+            {getBasicWebLanguage(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                {languageLabel(getBasicWebLanguage(formData.techStack))} +{" "}
+                {formData.techStack
+                  .filter((tech) => !["Python", "Java"].includes(tech))
+                  .join(" + ")}
+                : web pages served by {languageLabel(getBasicWebLanguage(formData.techStack))}
+                {"'"}s built-in server (no frameworks), with the program logic
+                in {languageLabel(getBasicWebLanguage(formData.techStack))}.
               </p>
             )}
 

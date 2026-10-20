@@ -8,7 +8,7 @@ import runAuthSmokeTest from "./authSmokeTest.js";
 import { extractBackendEndpoints } from "./validators/apiContractValidator.js";
 import { summarizeExports } from "./validators/moduleExportsValidator.js";
 import {
-  getConsoleLanguage,
+  getBasicProject,
   summarizeConsoleModules,
 } from "./consoleProject.js";
 
@@ -129,12 +129,12 @@ const generateApp = async (
     architecture.files || []
   );
 
-  // "python" / "java" for basic console programs, otherwise null
-  const consoleLanguage = getConsoleLanguage(techStack);
+  // Basic Python / Java project (console or built-in web server), or null
+  const basicProject = getBasicProject(techStack);
 
-  // Console programs have no HTTP API, even if the model listed one
+  // Basic projects have no JSON API contract, even if the model listed one
   const apiContract =
-    !consoleLanguage && Array.isArray(architecture.apiContract)
+    !basicProject && Array.isArray(architecture.apiContract)
       ? architecture.apiContract
       : [];
 
@@ -200,11 +200,11 @@ const generateApp = async (
             extractBackendEndpoints(generatedFiles).endpoints,
 
           // Exports of files generated in earlier batches
-          generatedModules: consoleLanguage
-            ? summarizeConsoleModules(generatedFiles, consoleLanguage)
+          generatedModules: basicProject
+            ? summarizeConsoleModules(generatedFiles, basicProject.language)
             : summarizeExports(generatedFiles),
 
-          consoleLanguage,
+          basicProject,
         });
 
       if (

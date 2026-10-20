@@ -6,7 +6,7 @@ import validateApiContract from "./validators/apiContractValidator.js";
 import validateModuleExports from "./validators/moduleExportsValidator.js";
 import validateDataFiles from "./validators/dataFilesValidator.js";
 import validateConsoleProject from "./validators/consoleValidator.js";
-import { detectConsoleLanguageFromFiles } from "./consoleProject.js";
+import { detectBasicProjectFromFiles } from "./consoleProject.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -31,13 +31,14 @@ const validateProject = (project) => {
     warnings,
   });
 
-  // Basic Python / Java console projects: none of the web checks apply
-  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+  // Basic Python / Java projects (console or built-in web server): none
+  // of the React/Express checks apply
+  const basicProject = detectBasicProjectFromFiles(files);
 
-  if (consoleLanguage) {
+  if (basicProject) {
     validateConsoleProject({
       files,
-      language: consoleLanguage,
+      project: basicProject,
       errors,
     });
 
@@ -46,7 +47,7 @@ const validateProject = (project) => {
       errors,
       warnings,
       totalFiles: files.length,
-      projectType: consoleLanguage,
+      projectType: `${basicProject.language}${basicProject.web ? "-web" : ""}`,
     };
   }
 

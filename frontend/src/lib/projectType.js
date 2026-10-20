@@ -21,5 +21,29 @@ export const getConsoleLanguage = (techStack = []) => {
   return null;
 };
 
+// Python or Java + only HTML / CSS / JavaScript: pages served by the
+// language's built-in HTTP server, logic in Python / Java
+export const getBasicWebLanguage = (techStack = []) => {
+  const list = (Array.isArray(techStack) ? techStack : []).map((tech) =>
+    String(tech).trim().toLowerCase()
+  );
+
+  const hasPython = list.includes("python");
+  const hasJava = list.includes("java");
+
+  if (hasPython === hasJava) return null;
+
+  const others = list.filter((tech) => tech !== "python" && tech !== "java");
+
+  if (
+    others.length === 0 ||
+    others.some((tech) => !["html", "css", "javascript"].includes(tech))
+  ) {
+    return null;
+  }
+
+  return hasPython ? "python" : "java";
+};
+
 export const languageLabel = (language) =>
   language === "python" ? "Python" : language === "java" ? "Java" : "";

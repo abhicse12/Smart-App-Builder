@@ -6,7 +6,7 @@ import {
 import { UI_DESIGN_RULES } from "./uiDesignRules.js";
 import {
   consoleFixerRules,
-  detectConsoleLanguageFromFiles,
+  detectBasicProjectFromFiles,
 } from "./consoleProject.js";
 
 const modifyProject = async ({
@@ -51,10 +51,10 @@ working code only to match them.
     : "";
 
   // Basic Python / Java programs keep their layout and sandbox rules
-  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+  const basicProject = detectBasicProjectFromFiles(files);
 
-  const consoleSection = consoleLanguage
-    ? consoleFixerRules(consoleLanguage)
+  const consoleSection = basicProject
+    ? consoleFixerRules(basicProject)
     : "";
 
   const modificationPrompt = `

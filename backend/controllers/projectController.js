@@ -846,20 +846,27 @@ export const modifyProject = async (req, res) => {
       )
     );
 
-    // A UI change must not touch backend or config files
+    // A UI change may only touch presentation files: React sources,
+    // templates/static of basic Python/Java web apps, or the root
+    // .html/.css/.js files of a static site
+    const isPresentationFile = (filePath) =>
+      /^frontend\/src\/|^templates\/|^static\/|^[^/]+\.(html|css|js)$/.test(
+        filePath
+      );
+
     const modificationFiles = uiChange
       ? modifiedProject.files.filter((file) => {
-          const inFrontendSource = /^frontend\/src\//.test(
+          const allowed = isPresentationFile(
             String(file?.path || "").replace(/\\/g, "/")
           );
 
-          if (!inFrontendSource) {
+          if (!allowed) {
             console.warn(
-              `UI modification: ignoring non-frontend file ${file?.path}`
+              `UI modification: ignoring non-presentation file ${file?.path}`
             );
           }
 
-          return inFrontendSource;
+          return allowed;
         })
       : modifiedProject.files;
 

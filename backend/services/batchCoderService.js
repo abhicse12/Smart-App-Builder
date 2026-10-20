@@ -16,13 +16,14 @@ const generateBatchCode = async ({
   apiContract = [],
   implementedEndpoints = [],
   generatedModules = [],
-  consoleLanguage = null,
+  basicProject = null,
 }) => {
-  // Basic Python / Java console program: its own short prompt, no RAG
-  if (consoleLanguage) {
+  // Basic Python / Java project (console or built-in web server): its
+  // own short prompt, no RAG
+  if (basicProject) {
     return generateWithAI(
       buildConsoleCoderPrompt({
-        language: consoleLanguage,
+        project: basicProject,
         projectName,
         description,
         files,

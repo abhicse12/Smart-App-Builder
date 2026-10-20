@@ -5,7 +5,7 @@ import {
 } from "./generationContract.js";
 import {
   consoleFixerRules,
-  detectConsoleLanguageFromFiles,
+  detectBasicProjectFromFiles,
 } from "./consoleProject.js";
 
 const fixProject = async ({
@@ -29,10 +29,10 @@ the conventions.
     : "";
 
   // Basic Python / Java programs: keep their layout and sandbox rules
-  const consoleLanguage = detectConsoleLanguageFromFiles(files);
+  const basicProject = detectBasicProjectFromFiles(files);
 
-  const consoleSection = consoleLanguage
-    ? consoleFixerRules(consoleLanguage)
+  const consoleSection = basicProject
+    ? consoleFixerRules(basicProject)
     : "";
 
   const fixerPrompt = `

@@ -149,6 +149,101 @@ If the user's requirements conflict with the selected stack,
 prefer the explicitly selected stack unless the user clearly
 requests a different technology.
 
+## Persistence / Demo-First Requirements (MANDATORY)
+
+This section applies whenever the architecture includes a backend
+that stores data: users, tasks, patients, bills, products, or ANY
+other persistent entity requested by the application.
+
+It applies to ALL persistence, not only authentication.
+
+Generated applications are executed in a sandbox where NO database
+is available and NO .env file is provided. The JSON fallback below
+is MANDATORY. It overrides any softer wording (such as
+"when possible") in the Architecture Rules or retrieved knowledge.
+
+Selecting MongoDB means Mongoose is used when MONGO_URI is set;
+when it is not set, the backend must start and use JSON files in
+backend/data/.
+
+MongoDB remains part of the selected technology stack and MUST be
+fully supported. The JSON persistence is a runtime fallback, not a
+replacement. Planning it does NOT violate the selected technology
+stack constraint.
+
+If another database is selected (e.g. MySQL or PostgreSQL), the
+same rule applies using that database's connection environment
+variable.
+
+The architecture MUST guarantee:
+
+1. MongoDB/Mongoose is used when MONGO_URI is set.
+
+2. When MONGO_URI is not set, the backend uses local JSON
+   persistence under backend/data/*.json.
+
+3. app.listen() does NOT depend on a successful MongoDB
+   connection. The server starts in both modes.
+
+4. The backend NEVER calls process.exit() because MONGO_URI is
+   missing or MongoDB is unavailable.
+
+5. The JSON fallback supports every CRUD/data operation the
+   application requires (create, read, update, delete, find by id,
+   find by field such as email), with the same API responses as
+   MongoDB mode.
+
+6. No backend .env file sets MONGO_URI to a Docker Compose service
+   hostname (e.g. mongodb://mongodb:27017). MONGO_URI is documented
+   in .env.example only.
+
+### Required persistence files in the "files" plan
+
+The file plan MUST explicitly contain the files required for the
+fallback. Do NOT leave the Coder to invent them.
+
+For every data-bearing application, include (following the
+project's backend folder structure):
+
+- One JSON data file per persistent entity, for example:
+  - backend/data/users.json
+  - backend/data/tasks.json
+  - a backend/data/<entity>.json file for every other requested
+    entity
+
+- A JSON storage module that reads and writes these files and
+  creates missing directories/files at runtime, for example:
+  backend/storage/jsonStore.js
+
+- A data-access layer for each entity (repository or service) that
+  selects MongoDB mode or JSON mode and is used by the controllers,
+  for example: backend/repositories/taskRepository.js
+
+- The database connection module (e.g. backend/config/db.js) that
+  connects only when MONGO_URI is set and never exits the process.
+
+- The Mongoose models, when MongoDB is selected.
+
+The "purpose" of each of these files MUST state its role in the
+dual-mode persistence. Examples:
+
+- backend/data/tasks.json:
+  "JSON persistence for tasks when MONGO_URI is not set; initial
+  content []"
+
+- backend/repositories/taskRepository.js:
+  "Task data access; uses the Mongoose Task model when MONGO_URI is
+  set, otherwise backend/data/tasks.json through the JSON store"
+
+- backend/server.js:
+  "Calls app.listen() regardless of database state; connects to
+  MongoDB only when MONGO_URI is set; never exits because MongoDB
+  is unavailable"
+
+Before producing the final architecture, verify that EVERY
+persistent entity has a JSON data file and a data-access path in
+the file plan.
+
 ## Feature Completeness Requirements
 
 Every functional requirement explicitly requested by the user MUST be

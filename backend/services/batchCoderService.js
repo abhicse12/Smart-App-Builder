@@ -193,6 +193,71 @@ or the equivalent export format.
 If a function does not exist, do NOT import it.
 
 ==================================================
+PERSISTENCE / DEMO-FIRST (MANDATORY)
+==================================================
+
+Generated backends run in a sandbox where NO database is available
+and NO .env file is provided. The backend MUST work in that sandbox.
+
+You MUST IMPLEMENT the following behavior for every backend that
+stores data (users, tasks, patients, bills, products, etc.).
+Describing it in comments is NOT sufficient.
+
+1. Two persistence modes, selected at startup:
+
+   - If process.env.MONGO_URI is set:
+     MongoDB/Mongoose may be used normally.
+
+   - If process.env.MONGO_URI is NOT set:
+     Use local JSON file persistence under backend/data/*.json
+     (one file per entity, e.g. backend/data/users.json,
+     backend/data/tasks.json).
+
+2. The server MUST start without MongoDB:
+
+   - app.listen() MUST NOT depend on a successful
+     mongoose.connect(). Start listening regardless of the
+     database state.
+   - NEVER call process.exit() because MONGO_URI is missing or
+     MongoDB is unreachable. Log a message and continue in
+     JSON mode instead.
+   - Only call mongoose.connect() when MONGO_URI is set.
+
+3. Same behavior in both modes:
+
+   - Controllers and routes MUST return the same responses,
+     status codes and data shapes in both modes.
+   - Implement the mode switch in the data-access layer
+     (model/service/repository functions) inside the requested
+     files, so controllers do not need to know which mode is
+     active.
+   - JSON mode MUST support every operation the app needs
+     (create, read, update, delete, find by id, find by field
+     such as email), generate unique ids, and persist changes by
+     writing the JSON file.
+
+4. JSON data files:
+
+   - If backend/data/*.json files are in REQUESTED FILES,
+     generate them with valid JSON (e.g. [] or seed records).
+   - The JSON storage code MUST create the backend/data directory
+     and any missing JSON file at runtime (with []) before reading,
+     so the app works even if those files were not generated.
+   - Do NOT create extra files that are not in REQUESTED FILES.
+
+5. Environment files:
+
+   - NEVER write a backend .env file containing a MONGO_URI such as
+     mongodb://mongodb:27017, or any Docker Compose service hostname
+     (e.g. "mongodb", "mongo", "db").
+   - .env.example MAY document MONGO_URI for users who want a real
+     MongoDB, but the application MUST work without it.
+
+6. Do NOT generate a MongoDB-only backend. If MongoDB is in the
+   technology stack, implement BOTH Mongoose (when MONGO_URI is set)
+   AND the JSON fallback (when it is not).
+
+==================================================
 FRONTEND / BACKEND CONSISTENCY
 ==================================================
 
@@ -461,6 +526,12 @@ Before returning the response, internally verify:
 13. No important page is left with browser-default styling.
 
 14. Do not generate undefined custom CSS classes.
+
+15. The backend starts and calls app.listen() without MONGO_URI,
+    and never calls process.exit() because MongoDB is unavailable.
+
+16. Every data operation works in JSON mode (backend/data/*.json)
+    when MONGO_URI is not set.
 
 ==================================================
 OUTPUT FORMAT

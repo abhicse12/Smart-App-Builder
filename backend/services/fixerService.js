@@ -217,6 +217,13 @@ Before returning the result, verify:
 - Frontend navigation and React routes are consistent.
 - Dependencies are consistent with actual imports.
 - The project architecture is preserved.
+- No returned backend .env sets MONGO_URI to a Docker Compose
+  hostname (mongodb://mongodb, mongodb://mongo, mongodb://db,
+  mongodb://database or equivalent).
+- No process.exit() is called because of a database failure.
+- The backend can start and call app.listen() without MONGO_URI.
+- Existing backend/data runtime records are preserved (no existing
+  backend/data/*.json file is returned with replaced content).
 
 Only after this verification should the modified files
 be returned.
@@ -308,6 +315,83 @@ If a dependency/configuration change is absolutely required,
 modify only the necessary file.
 
 Preserve existing dependency versions whenever possible.
+
+==================================================
+DATABASE / DEMO-FIRST SANDBOX RULE (MANDATORY)
+==================================================
+
+The project runs in a sandbox where NO MongoDB container or
+database service is guaranteed. There is NO service named
+"mongodb", "mongo", "db" or "database" in the sandbox.
+docker-compose.yml is NOT used by the sandbox.
+
+This rule takes precedence over the INFRASTRUCTURE ERROR
+PROTECTION section: a database connection failure printed by the
+backend in dockerLogs is an APPLICATION error and MUST be fixed
+as described below. Do NOT return { "files": [] } for it.
+
+1. Classify the error first:
+
+   A. Missing or unavailable database. Examples:
+      - MONGO_URI is undefined / not defined / missing
+      - The uri parameter to openUri() must be a string
+      - MongooseServerSelectionError
+      - getaddrinfo ENOTFOUND mongodb (or mongo, db, database)
+      - connect ECONNREFUSED ...:27017
+      - MongoDB connection timeout
+      → Enable or repair the JSON persistence fallback (rules 2-4).
+
+   B. Application bug unrelated to the database (SyntaxError,
+      missing import/export, wrong route, etc.)
+      → Fix that bug normally. Do NOT change database code.
+
+   C. MONGO_URI explicitly configured by the user with a real
+      external database URL (e.g. mongodb+srv://... or an external
+      hostname that is not a Docker Compose service name)
+      → Do NOT remove or replace it merely because the sandbox
+        cannot reach it. Still ensure rules 3-4 so the server
+        starts and falls back to JSON mode on connection failure.
+
+2. For case A, you MUST NOT:
+   - create or modify backend/.env to point MONGO_URI to a
+     Docker Compose hostname
+   - invent any database hostname
+   - add mongodb://mongodb:27017, mongodb://mongo:27017,
+     mongodb://db:27017, mongodb://localhost:27017 or any similar
+     URL
+   If backend/.env already sets MONGO_URI to a Docker Compose
+   hostname (mongodb, mongo, db, database), remove ONLY that
+   MONGO_URI line and keep every other variable, so the JSON
+   fallback is used.
+
+3. For case A, IMPLEMENT the fallback in the project code:
+   - If the project already has a JSON persistence / data-access
+     layer, use it and repair the database-mode switch if needed.
+   - If it does not, add JSON persistence under backend/data/*.json
+     in the existing data-access layer (model/service/repository),
+     keeping the same controller/route API responses.
+   - The JSON storage code must create backend/data and any
+     missing JSON file at runtime (with []).
+   - Attempt mongoose.connect() ONLY when MONGO_URI is actually set.
+   - If the connection fails, log the error and continue in JSON
+     mode.
+
+4. The server MUST start without MongoDB:
+   - app.listen() MUST NOT depend on mongoose.connect().
+   - NEVER call process.exit() because MONGO_URI is missing,
+     MongoDB is unreachable, the DNS lookup fails or the
+     connection times out.
+
+5. Protect runtime data:
+   - NEVER return an existing backend/data/*.json file with
+     replaced or seed content to fix a database error.
+   - Preserve existing user/task/application records.
+   - Only return a backend/data/*.json file if it does not exist
+     yet.
+
+6. Change only the minimum files needed (typically server.js,
+   the database config, and the data-access layer). Do NOT
+   regenerate the project.
 
 ==================================================
 BILLING RULES

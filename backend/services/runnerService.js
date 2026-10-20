@@ -445,12 +445,9 @@ const detectProjectType = (projectRoot) => {
     return "react";
   }
 
-  // Static HTML/CSS/JS
-  if (hasIndexHtml) {
-    return "static";
-  }
-
-  // Basic Python / Java web apps (built-in HTTP server + templates/static)
+  // Basic Python / Java web apps (built-in HTTP server + templates/static).
+  // Checked before static sites so a leftover root index.html does not
+  // hide the server.
   const hasPages =
     fs.existsSync(path.join(projectRoot, "templates")) ||
     fs.existsSync(path.join(projectRoot, "static"));
@@ -464,6 +461,11 @@ const detectProjectType = (projectRoot) => {
     fs.existsSync(path.join(projectRoot, "src", "Main.java"))
   ) {
     return "java-web";
+  }
+
+  // Static HTML/CSS/JS
+  if (hasIndexHtml) {
+    return "static";
   }
 
   // Basic console programs

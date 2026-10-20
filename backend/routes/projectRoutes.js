@@ -9,6 +9,7 @@ import {
   runProject,
   deleteProject,
   modifyProject,
+  getDeletedProjects,
 } from "../controllers/projectController.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
@@ -20,6 +21,8 @@ router.use(authMiddleware);
 
 router.post("/", createProject);
 router.get("/", getProjects);
+// Before "/:id" so "history" is not treated as a project id
+router.get("/history", getDeletedProjects);
 router.delete("/:id", withProjectLock("delete", deleteProject));
 router.get("/:id/files", getProjectFiles);
 router.get("/:id/download", downloadProject);

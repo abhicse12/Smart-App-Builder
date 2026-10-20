@@ -24,6 +24,7 @@ const menuItems = [
   {
     title: "History",
     icon: History,
+    path: "/history",
   },
   {
     title: "Settings",

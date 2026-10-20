@@ -1,4 +1,5 @@
 import Project from "../models/Project.js";
+import DeletedProject from "../models/DeletedProject.js";
 import modifyProjectService from "../services/modifyProjectService.js";
 
 import fs from "fs";
@@ -606,6 +607,25 @@ export const deleteProject = async (req, res) => {
 
     await Project.findByIdAndDelete(id);
 
+    // Keep a record for the History page. The project is already
+    // deleted, so a failure here is logged but not reported as an error.
+    try {
+      await DeletedProject.create({
+        user: project.user,
+        projectId: project._id,
+        name: project.name,
+        description: project.description,
+        techStack: project.techStack,
+        status: project.status,
+        projectCreatedAt: project.createdAt,
+      });
+    } catch (historyError) {
+      console.error(
+        "Deleted project history error:",
+        historyError
+      );
+    }
+
     return res.status(200).json({
       success: true,
       message: "Project deleted successfully",
@@ -620,6 +640,37 @@ export const deleteProject = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to delete project",
+      ...errorDetails(error),
+    });
+  }
+};
+
+// ======================================================
+// DELETED PROJECTS (HISTORY)
+// ======================================================
+
+export const getDeletedProjects = async (req, res) => {
+  try {
+    const projects = await DeletedProject.find({
+      user: req.user.userId,
+    })
+      .sort({ deletedAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: projects.length,
+      projects,
+    });
+  } catch (error) {
+    console.error(
+      "Get Deleted Projects Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch project history",
       ...errorDetails(error),
     });
   }

@@ -26,7 +26,11 @@ function App() {
         />
         <Route
           path="/projects/:id"
-          element={<ProjectDetails />}
+          element={
+            <ProtectedRoute>
+              <ProjectDetails />
+            </ProtectedRoute>
+          }
         />
       </Routes>
     </BrowserRouter>

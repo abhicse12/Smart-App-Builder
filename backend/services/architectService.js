@@ -47,8 +47,8 @@ search, etc.) must have its endpoint here, and every endpoint must
 be used by the frontend.
 
 Also include frontend/src/services/api.js (the axios client) and,
-when the app has login, frontend/src/context/AuthContext.jsx in the
-"files" plan.
+when the app has login, backend/config/jwt.js (the single JWT secret)
+and frontend/src/context/AuthContext.jsx in the "files" plan.
 `
     : "";
   // ==================================================

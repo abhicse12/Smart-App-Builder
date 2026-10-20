@@ -228,7 +228,12 @@ const runAuthSmokeTest = async ({ files = [], previewUrl }) => {
       if (meResult.status !== 200) {
         return fail(
           describe(me, "Current-user", meResult) +
-            ` using the token/cookie returned by login`
+            ` using the token/cookie returned by login` +
+            (meResult.status === 401 && token
+              ? '. The token from login was rejected: jwt.sign (auth controller) and jwt.verify (auth middleware) must use the SAME secret, including the same fallback string when JWT_SECRET is not set (define it once in backend/config/jwt.js), and the middleware must read the same payload field that was signed'
+              : meResult.status === 404
+                ? ". The token was accepted but the user was not found: the id read from the token (req.user._id) must match the stored user's _id"
+                : "")
         );
       }
 

@@ -14,6 +14,7 @@ const generateBatchCode = async ({
   allFiles,
   apiContract = [],
   implementedEndpoints = [],
+  generatedModules = [],
 }) => {
   // Shared API contract for Express + Vite projects. Backend files are
   // generated first, so frontend batches see the routes that really exist.
@@ -46,6 +47,22 @@ ${
 }
 `
     : "";
+
+  // Exports of files from earlier batches, so imports use real names
+  const modulesSection =
+    generatedModules.length > 0
+      ? `
+==================================================
+MODULES ALREADY GENERATED (AUTHORITATIVE EXPORTS)
+==================================================
+
+Files from earlier batches and the names they export. When a requested
+file imports from one of them, import ONLY these names ("default" means
+use a default import). Do not assume any other export exists.
+
+${generatedModules.join("\n")}
+`
+      : "";
 
     const retrievalQuery = `
   Project Name:
@@ -146,6 +163,7 @@ COMPLETE PROJECT STRUCTURE
 ${allFiles.map((file) => `- ${file.path}`).join("\n")}
 
 ${contractSection}
+${modulesSection}
 
 ==================================================
 BATCH OUTPUT RULES

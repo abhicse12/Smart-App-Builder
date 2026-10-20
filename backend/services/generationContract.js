@@ -58,20 +58,32 @@ batches, so both sides MUST follow them exactly.
 4. Token handling (Bearer token, NO cookies)
    - The backend signs a JWT and returns it in the JSON body as "token".
      Do NOT use cookies or cookie-parser for authentication.
-   - The JWT secret is process.env.JWT_SECRET with a development
-     fallback, defined in ONE place and used by both sign and verify.
+   - The JWT secret is defined ONCE, in backend/config/jwt.js:
+       const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret";
+       module.exports = { JWT_SECRET };
+     authController (jwt.sign) and authMiddleware (jwt.verify) both
+     import JWT_SECRET from it. Never write a second fallback string:
+     different fallbacks make every token fail verification.
+   - Tokens are signed with the payload { _id: user._id }.
    - Auth middleware reads the token from
        req.headers.authorization ("Bearer <token>")
-     and sets req.user = { _id: <user id> } (or the full user).
+     verifies it with the same JWT_SECRET and sets
+       req.user = { _id: decoded._id }
+     Controllers read the user id as req.user._id.
    - The frontend stores the token in localStorage under "token" and
      the api client adds "Authorization: Bearer <token>" to every
      request (axios request interceptor).
    - cors() is used without credentials (no cookies are involved).
 
 5. Frontend auth state
-   - Auth state lives in React state (an AuthContext/AuthProvider with
-     useState, or equivalent), NOT in a value read once from
-     localStorage during render.
+   - frontend/src/context/AuthContext.jsx exports exactly these named
+     exports: AuthContext, AuthProvider, useAuth.
+       export const AuthContext = createContext(null);
+       export const AuthProvider = ({ children }) => { ... };
+       export const useAuth = () => useContext(AuthContext);
+   - Pages and components get auth with: const { user, login, logout } = useAuth();
+   - Auth state lives in React state (useState inside AuthProvider),
+     NOT in a value read once from localStorage during render.
    - login() saves the token and user to localStorage AND updates the
      state, so protected routes re-render immediately after login.
    - Protected routes read the auth state from the context.
@@ -88,6 +100,13 @@ batches, so both sides MUST follow them exactly.
    - Errors are JSON: { message }.
    - Other endpoints return the shapes listed in the API contract.
      The frontend reads exactly those shapes.
+
+8. Imports and exports across files
+   - Only import names that the target file really exports (see
+     "MODULES ALREADY GENERATED" when present). A missing named export
+     makes the browser refuse the module and the page renders blank.
+   - React components and pages use "export default"; shared hooks,
+     contexts and helpers use named exports.
 `;
 
 // Formats the Architect's apiContract (if any) for the Coder/Fixer prompt

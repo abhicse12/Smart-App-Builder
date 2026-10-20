@@ -3,6 +3,7 @@ import validateStructure from "./validators/structureValidator.js";
 import validateRuntime from "./validators/runtimeValidator.js";
 import validateFeatureCompleteness from "./validators/featureValidator.js";
 import validateApiContract from "./validators/apiContractValidator.js";
+import validateModuleExports from "./validators/moduleExportsValidator.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -44,6 +45,12 @@ const validateProject = (project) => {
     files,
     errors,
     warnings,
+  });
+
+  // Imported names must be exported by the imported local file
+  validateModuleExports({
+    files,
+    errors,
   });
 
   const normalizePath = (filePath) =>

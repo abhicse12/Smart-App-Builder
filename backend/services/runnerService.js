@@ -275,6 +275,10 @@ const waitForContainerHealth = async (
         "Internal server error",
         "Pre-transform error",
         "Failed to load url",
+        // vite build (Rollup) errors
+        "is not exported by",
+        "error during build",
+        "Could not resolve",
       ];
 
       const detectedError =
@@ -844,7 +848,11 @@ const runProject = async (projectId) => {
       "sh",
       "-c",
 
-      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
+      // "npm run build" compiles every module first, so a broken import
+      // (e.g. a missing named export) fails here with a log the Fixer
+      // can use, instead of a blank page in the browser. The output goes
+      // to /tmp so nothing is written into the project folder.
+      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run build -- --outDir /tmp/vite-build-check --emptyOutDir && npm run dev -- --host 0.0.0.0 --port 5173",
     ]);
 
     console.log(

@@ -532,12 +532,173 @@ const getHandlerBodyFields = (code, handlerPattern) => {
   return handler ? getObjectKeys(handler[2]) : null;
 };
 
+/* =========================================================
+   JWT SIGN / VERIFY CONSISTENCY
+========================================================= */
+
+// Every `const NAME = <expr>` in the backend (first definition wins)
+const collectDefinitions = (backendFiles) => {
+  const definitions = new Map();
+
+  for (const file of backendFiles) {
+    for (const match of file.content.matchAll(
+      /(?:const|let|var)\s+([\w$]+)\s*=\s*([^;\n]+)/g
+    )) {
+      if (!definitions.has(match[1])) {
+        definitions.set(match[1], match[2].trim());
+      }
+    }
+
+    // exports.JWT_SECRET = ... / module.exports.JWT_SECRET = ...
+    for (const match of file.content.matchAll(
+      /(?:module\.)?exports\.([\w$]+)\s*=\s*([^;\n]+)/g
+    )) {
+      if (!definitions.has(match[1])) {
+        definitions.set(match[1], match[2].trim());
+      }
+    }
+  }
+
+  return definitions;
+};
+
+// "process.env.JWT_SECRET || 'dev'" -> { env: "JWT_SECRET", fallback: "dev" }
+const resolveSecret = (expression, definitions) => {
+  let value = expression.trim();
+
+  // Follow identifiers / config.jwtSecret style references a few levels
+  for (let depth = 0; depth < 4; depth++) {
+    const identifier = value.match(/^(?:[\w$]+\.)?([\w$]+)$/);
+
+    if (
+      !identifier ||
+      /^process\.env\./.test(value) ||
+      !definitions.has(identifier[1])
+    ) {
+      break;
+    }
+
+    value = definitions.get(identifier[1]);
+  }
+
+  const env = value.match(/process\.env\.([\w$]+)/)?.[1] || null;
+  const literals = [...value.matchAll(/(["'`])([^"'`]*)\1/g)].map(
+    (match) => match[2]
+  );
+
+  return {
+    expression: value,
+    env,
+    fallback: literals.length > 0 ? literals[literals.length - 1] : null,
+  };
+};
+
+const validateJwt = ({ backendFiles, backendCode, envVariables, errors }) => {
+  const definitions = collectDefinitions(backendFiles);
+  const uses = [];
+
+  for (const file of backendFiles) {
+    for (const match of file.content.matchAll(
+      /jwt\s*\.\s*(sign|verify)\s*\(\s*(\{[^}]*\}|[^,]+?)\s*,\s*([^,)]+)/g
+    )) {
+      uses.push({
+        kind: match[1],
+        file: file.path,
+        payload: match[2],
+        secret: resolveSecret(match[3], definitions),
+      });
+    }
+  }
+
+  const signs = uses.filter((use) => use.kind === "sign");
+  const verifies = uses.filter((use) => use.kind === "verify");
+
+  if (signs.length === 0 || verifies.length === 0) {
+    return;
+  }
+
+  const describeSecret = (use) =>
+    `${use.file} ${use.kind}s with ${use.secret.env ? `process.env.${use.secret.env}` : "no env variable"}${use.secret.fallback !== null ? ` || "${use.secret.fallback}"` : ""}`;
+
+  // Without a .env file the fallback is the real secret, so it must match
+  const variants = new Set(
+    uses.map((use) => `${use.secret.env}|${use.secret.fallback}`)
+  );
+
+  if (variants.size > 1) {
+    errors.push(
+      `JWT secret mismatch: tokens are signed and verified with different secrets, so every token is rejected (401 "token failed") after login. ${uses
+        .map(describeSecret)
+        .join("; ")}. Define the secret once (e.g. backend/config/jwt.js: process.env.JWT_SECRET || "dev-jwt-secret") and use it for both jwt.sign and jwt.verify.`
+    );
+  } else if (
+    uses.some(
+      (use) =>
+        use.secret.env &&
+        use.secret.fallback === null &&
+        !envVariables.has(use.secret.env)
+    )
+  ) {
+    errors.push(
+      `JWT secret has no fallback: ${uses
+        .filter((use) => use.secret.fallback === null)
+        .map(describeSecret)
+        .join("; ")}. The sandbox has no .env file, so process.env.JWT_SECRET is undefined and jwt.sign/verify throw. Use process.env.JWT_SECRET || "dev-jwt-secret" from one shared module.`
+    );
+  }
+
+  // Fields read from the decoded token must exist in the signed payload
+  const payloadKeys = new Set();
+  let payloadsKnown = true;
+
+  for (const sign of signs) {
+    if (!sign.payload.startsWith("{")) {
+      payloadsKnown = false;
+      break;
+    }
+
+    for (const key of getObjectKeys(sign.payload.slice(1, -1))) {
+      payloadKeys.add(key);
+    }
+  }
+
+  if (!payloadsKnown || payloadKeys.size === 0) {
+    return;
+  }
+
+  const reads = new Set(
+    [...backendCode.matchAll(/\bdecoded\s*\.\s*([\w$]+)/g)].map(
+      (match) => match[1]
+    )
+  );
+
+  // req.user = decoded: controllers read the payload through req.user
+  if (/req\.user\s*=\s*decoded\b/.test(backendCode)) {
+    for (const match of backendCode.matchAll(/\breq\.user\s*\.\s*([\w$]+)/g)) {
+      reads.add(match[1]);
+    }
+  }
+
+  const missing = [...reads].filter(
+    (key) => !payloadKeys.has(key) && !["iat", "exp"].includes(key)
+  );
+
+  if (missing.length > 0) {
+    errors.push(
+      `JWT payload mismatch: tokens are signed with { ${[...payloadKeys].join(", ")} } but the backend reads ${missing
+        .map((key) => `"${key}"`)
+        .join(", ")} from the decoded token (decoded.${missing[0]} / req.user.${missing[0]}), which is undefined. Use the same field name when signing and reading the token.`
+    );
+  }
+};
+
 const validateAuthWiring = ({
   backendFiles,
   backendCode,
   frontendCode,
   frontendFiles,
   calls,
+  envVariables = new Set(),
   errors,
 }) => {
   const usesCookieAuth = /req\.cookies\b/.test(backendCode);
@@ -557,6 +718,8 @@ const validateAuthWiring = ({
 
   const frontendSendsBearer =
     /Authorization["'`]?\s*\]?\s*[:=,]\s*[`"']?\s*Bearer/i.test(frontendCode);
+
+  validateJwt({ backendFiles, backendCode, envVariables, errors });
 
   // Relative /api requests go through the Vite proxy (same origin), so a
   // complete cookie flow works without withCredentials. Only report a
@@ -824,6 +987,18 @@ const validateApiContract = ({
       frontendCode: frontendFiles.map((file) => file.content).join("\n"),
       frontendFiles,
       calls,
+      // Variables set by a generated .env file (not .env.example)
+      envVariables: new Set(
+        files
+          .filter((file) =>
+            /(^|\/)\.env$/.test(normalizePath(file?.path))
+          )
+          .flatMap((file) =>
+            [...String(file.content || "").matchAll(/^\s*([\w]+)\s*=\s*\S/gm)].map(
+              (match) => match[1]
+            )
+          )
+      ),
       errors,
     });
   }

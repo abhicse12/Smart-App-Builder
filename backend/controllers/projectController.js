@@ -16,6 +16,19 @@ import fixProject from "../services/fixerService.js";
 import syncProjectFiles from "../services/syncProjectFiles.js";
 import { errorDetails } from "../utils/errorResponse.js";
 
+// Folders left out of project downloads (dependencies, build output,
+// caches); same list as syncProjectFiles
+const DOWNLOAD_SKIPPED_DIRECTORIES = [
+  "**/node_modules",
+  "**/dist",
+  "**/build",
+  "**/.git",
+  "**/.vite",
+  "**/.next",
+  "**/coverage",
+  "**/.cache",
+];
+
 // ======================================================
 // CREATE PROJECT
 // ======================================================
@@ -252,9 +265,23 @@ export const downloadProject = async (req, res) => {
       res.destroy(error);
     });
 
+    archive.on("warning", (warning) => {
+      console.warn("Archive Warning:", warning.message);
+    });
+
     archive.pipe(res);
 
-    archive.directory(projectPath, false);
+    // Source files only. Dependency / build folders are skipped
+    // without being read: node_modules installed by Docker contains
+    // Linux symlinks that cannot be read on Windows and stalled the
+    // download. Secret .env files are never included.
+    archive.glob("**/*", {
+      cwd: projectPath,
+      dot: true,
+      skip: DOWNLOAD_SKIPPED_DIRECTORIES,
+      // .env and .env.* (but keep .env.example)
+      ignore: ["**/.env", "**/.env.!(example)", "**/*.tmp"],
+    });
 
     await archive.finalize();
   } catch (error) {

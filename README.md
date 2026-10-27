@@ -1,1541 +1,602 @@
 # 🤖 Intelligent Autonomous App Builder
 
-> An AI-powered autonomous application generation platform that converts natural-language requirements into complete, runnable applications using Multi-Agent Orchestration, Retrieval-Augmented Generation (RAG), automated validation, self-healing, and Docker-based execution.
+> An AI-powered platform that turns a natural-language requirement and a chosen technology stack into a complete, runnable project, using a multi-agent pipeline (Architect → Coder → Validator → Fixer), Retrieval-Augmented Generation (RAG), and sandboxed Docker execution with automatic self-healing.
 
 ---
 
 ## 📌 Table of Contents
 
 - [Overview](#-overview)
-- [Project Objective](#-project-objective)
 - [Key Features](#-key-features)
-- [System Architecture](#-system-architecture)
-- [Complete System Flow](#-complete-system-flow)
-- [Multi-Agent Architecture](#-multi-agent-architecture)
-- [RAG Pipeline](#-retrieval-augmented-generation-rag)
-- [Technology Stack](#-technology-stack)
-- [Project Structure](#-project-structure)
+- [Technology Stack](#️-technology-stack)
+- [System Architecture](#️-system-architecture)
+- [Generation Workflow](#-generation-workflow)
+- [Modify Workflow](#️-modify-workflow)
 - [AI Agents](#-ai-agents)
-- [Database Architecture](#-database-architecture)
-- [API Architecture](#-api-architecture)
+- [AI Provider Layer](#-ai-provider-layer)
+- [RAG Pipeline](#-rag-pipeline)
+- [Validation Layer](#-validation-layer)
 - [Docker Runtime](#-docker-runtime)
-- [Example Workflow](#-example-workflow)
-- [Installation](#-installation)
+- [Supported Project Types](#-supported-project-types)
+- [Database Models](#️-database-models)
+- [REST API](#-rest-api)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
-- [Running the Project](#-running-the-project)
-- [RAG Knowledge Base Setup](#-rag-knowledge-base-setup)
-- [Design Principles](#-design-principles)
-- [Advantages](#-advantages)
+- [Security Measures](#-security-measures)
+- [Limitations](#️-limitations)
 - [Future Enhancements](#-future-enhancements)
-- [Academic Significance](#-academic-significance)
 - [Author](#-author)
 
 ---
 
-# 📌 Overview
+## 📌 Overview
 
-**Intelligent Autonomous App Builder** is a full-stack AI-powered software generation platform designed to automatically transform natural-language application requirements into complete runnable applications.
+The user signs up, creates a project (name + technology stack), and describes the application in plain English. The backend then:
 
-The user provides:
+1. **Retrieves** stack-specific engineering knowledge from a RAG knowledge base.
+2. **Plans** the project with an **Architect Agent** (file list, purpose of each file, API contract).
+3. **Generates** the code in batches with a **Coder Agent**.
+4. **Validates** the code with a set of static validators.
+5. **Fixes** any errors with a **Fixer Agent** and re-validates (self-healing loop).
+6. **Runs** the project in an isolated **Docker** container and, for apps with login, performs an **auth smoke test** (real signup → login → session).
+7. Feeds any runtime error back to the Fixer Agent and retries.
 
-1. Project name
-2. Technology stack
-3. Application requirements
-
-The system then automatically performs:
+The verified project is saved to MongoDB and to disk, can be previewed live, downloaded as a ZIP, or changed later with a natural-language **Modify** request.
 
 ```text
-Natural Language Requirement
-          ↓
-Selected Technology Stack
-          ↓
-RAG Knowledge Retrieval
-          ↓
-Architect Agent
-          ↓
-Architecture Blueprint
-          ↓
-Coder Agent
-          ↓
-Generated Source Code
-          ↓
-Validator
-          ↓
-Fixer Agent
-          ↓
-Verified Application
-          ↓
-Docker Runtime
-          ↓
-Live Preview
+Requirement + Stack → RAG → Architect → Coder (batches) → Validator ⇄ Fixer
+                                                              ↓
+                                   Live Preview ← Docker Runtime ⇄ Runtime Fixer
+```
 
-The primary goal is to reduce the amount of manual effort required to design, implement, validate, debug, and run software applications.
+---
 
-🎯 Project Objective
+## ✨ Key Features
 
-Traditional AI code-generation systems can generate useful code snippets, but generating a complete and consistent software project introduces additional challenges.
+| Feature | Description |
+|---|---|
+| Natural-language generation | Describe the app; the system produces every file |
+| Stack as a hard constraint | The selected technologies override RAG knowledge and model preferences |
+| Multi-agent pipeline | Separate Architect, Coder, Fixer and Modify agents |
+| RAG knowledge base | Gemini embeddings + cosine similarity over curated Markdown docs, filtered by stack |
+| Shared API contract | Fixed conventions + an Architect-generated endpoint list keep frontend and backend in sync |
+| Static validation | Structure, API contract, module exports, features, data files, runtime config, Python/Java checks |
+| Self-healing | Up to 3 static fix attempts and 3 runtime fix attempts |
+| Docker runtime validation | Every project is started in a resource-limited sandbox before it is marked `verified` |
+| Auth smoke test | For apps with login, real signup/login/session calls are made through the running app |
+| Modify existing projects | Change or repair a project in plain English, with protected files and re-validation |
+| AI provider fallback | Several Gemini models in order, then Groq (Qwen) |
+| Accounts & history | JWT (HttpOnly cookie) auth, per-user projects, history of deleted projects |
+| Download | Export any project as a ZIP |
 
-The generated project may contain:
+---
 
-Missing files
-Incorrect dependencies
-Incorrect project structure
-Inconsistent APIs
-Missing backend routes
-Missing frontend routes
-Incorrect database models
-Technology-stack violations
-Runtime errors
-Inconsistent file references
+## 🛠️ Technology Stack
 
-This project addresses these challenges by combining:
+### Platform (this repository)
 
-Generative AI
-+
-Multi-Agent Orchestration
-+
-Retrieval-Augmented Generation
-+
-Semantic Search
-+
-Automated Validation
-+
-Self-Healing
-+
-Docker Isolation
+| Layer | Technologies |
+|---|---|
+| **Frontend** | React 19, Vite 8, React Router 7, Tailwind CSS 4, shadcn/ui (Base UI), Lucide icons, Geist font, Fetch API |
+| **Backend** | Node.js (ES modules), Express 5, Mongoose 9, JSON Web Tokens, bcryptjs, cookie-parser, CORS, express-rate-limit |
+| **Database** | MongoDB (local or Atlas) |
+| **Generative AI** | Google Gemini via `@google/genai` (primary), Groq via `groq-sdk` (fallback) |
+| **Embeddings / RAG** | `gemini-embedding-001`, cosine similarity in Node.js, chunks stored in MongoDB |
+| **Code formatting** | Prettier (generated files are formatted before saving) |
+| **Packaging** | archiver (ZIP download) |
+| **Sandbox runtime** | Docker (`nginx:alpine`, `node:22-alpine`, `node:22`, `python:3.12-slim`, `eclipse-temurin:21-jdk`) |
+| **Tooling** | Nodemon, oxlint, Git |
 
-The system therefore moves from simple AI code generation toward an autonomous software-generation workflow.
+### Default AI models
 
-✨ Key Features
-1. Natural Language Application Generation
+| Purpose | Model | Configurable with |
+|---|---|---|
+| Generation (tried in order) | `gemini-3.1-flash-lite` → `gemini-3.5-flash-lite` → `gemini-3.5-flash` → `gemini-3-flash-preview` | `GEMINI_MODELS` |
+| Fallback generation | `qwen/qwen3.8-27b` on Groq | `GROQ_MODEL`, `GROQ_TPM_LIMIT` |
+| Embeddings | `gemini-embedding-001` (`RETRIEVAL_DOCUMENT` / `RETRIEVAL_QUERY`) | — |
 
-Users can describe an application using natural language.
+### Stacks a user can select
 
-Example:
+`HTML`, `CSS`, `JavaScript`, `React`, `Node.js`, `Express`, `MongoDB`, `Vite`, `Tailwind CSS`, `Next.js`, `MySQL`, `PostgreSQL`, `Python`, `Java`
 
-Create a Tic-Tac-Toe game using HTML, CSS and JavaScript.
+How the selection maps to what gets generated is described in [Supported Project Types](#-supported-project-types).
 
-The game should support two players,
-display the current player's turn,
-detect the winner,
-display a draw message,
-and provide a restart button.
+---
 
-The system converts this requirement into a complete project.
+## 🏗️ System Architecture
 
-2. Technology Stack Selection
+```mermaid
+flowchart LR
+    subgraph FE["Frontend · React + Vite"]
+        UI["Home / Login / Signup<br/>Dashboard / ProjectDetails / History"]
+    end
 
-Users select the technologies they want to use.
+    subgraph BE["Backend · Node.js + Express"]
+        R["Routes<br/>/api/auth · /api/projects · /api/generate"]
+        MW["authMiddleware (JWT cookie)<br/>projectLock (one job per project)"]
+        C["Controllers"]
+        GS["generationService<br/>(orchestrator)"]
+        AG["Agents<br/>Architect · Coder · Fixer · Modify"]
+        AI["aiService<br/>Gemini → Groq"]
+        RAG["retrievalService<br/>embeddingService"]
+        V["validatorService<br/>+ 7 validators"]
+        RUN["runnerService<br/>+ authSmokeTest"]
+    end
 
-Supported technologies include:
+    DB[("MongoDB<br/>Users · Projects<br/>KnowledgeChunks · DeletedProjects")]
+    FS[["generated-projects/&lt;projectId&gt;"]]
+    DK["Docker sandbox"]
+    LLM["Gemini / Groq APIs"]
 
-HTML
-CSS
-JavaScript
-React
-Node.js
-Express
-MongoDB
-Vite
-Tailwind CSS
-Next.js
-MySQL
-PostgreSQL
-Python
+    UI -- "HTTP + cookie" --> R --> MW --> C --> GS
+    GS --> AG --> AI --> LLM
+    AG --> RAG --> DB
+    GS --> V
+    GS --> RUN --> DK
+    GS --> FS
+    C --> DB
+    DK -. "mounts" .-> FS
+```
 
-The selected technology stack is treated as a hard constraint by the Architect Agent.
+**Layers**
 
-For example:
+| Layer | Responsibility | Main files |
+|---|---|---|
+| Presentation | UI, forms, live progress, preview links | `frontend/src/pages`, `frontend/src/components` |
+| API | Routing, auth, rate limiting, per-project locking | `backend/routes`, `backend/middleware`, `backend/utils/projectLock.js` |
+| Orchestration | Runs the full pipeline and the fix loops | `backend/services/generationService.js`, `backend/controllers/projectController.js` (modify) |
+| Agents | Prompt building for each role | `architectService.js`, `batchCoderService.js`, `fixerService.js`, `modifyProjectService.js` |
+| Knowledge | Rules + RAG retrieval | `architectureRulesService.js`, `retrievalService.js`, `embeddingService.js`, `generationContract.js` |
+| Verification | Static checks, Docker runs, smoke test | `validatorService.js`, `validators/`, `runnerService.js`, `authSmokeTest.js` |
+| Persistence | MongoDB models, files on disk | `backend/models`, `fileGenerationService.js`, `writeProjectFiles.js` |
 
-Selected Stack:
+---
 
-HTML + CSS + JavaScript
+## 🔄 Generation Workflow
 
-The Architect should generate a static application rather than unnecessarily introducing:
+`POST /api/generate` → `generationController` → `generationService.generateApp()`
 
-React
-Vite
-Node.js
-Express
-MongoDB
-3. Multi-Agent Architecture
+```mermaid
+flowchart TD
+    A["User requirement + selected stack"] --> B{"Basic Python / Java<br/>project?"}
+    B -- yes --> B1["Basic-project Architect prompt"]
+    B -- no --> B2["Load architecture rules<br/>(rag/architecture/*.md)<br/>+ API conventions"]
+    B2 --> B3["RAG retrieval (top 3 chunks)"]
+    B1 --> C["Architect Agent<br/>→ files[] + apiContract[]"]
+    B3 --> C
+    C --> D["Order files<br/>backend → shared modules → pages → App/main"]
+    D --> E["Coder Agent in batches of 4<br/>(each batch gets RAG, the contract,<br/>routes and exports already generated)"]
+    E --> F["Static validation"]
+    F -- invalid --> G["Fixer Agent<br/>(max 3 attempts)"]
+    G --> F
+    F -- "still invalid" --> X["Save files<br/>status = validation_failed"]
+    F -- valid --> H["Prettier format + write to<br/>generated-projects/&lt;id&gt;"]
+    H --> I["Run in Docker"]
+    I --> J{"Started? Auth<br/>smoke test passed?"}
+    J -- no --> K["Runtime Fixer Agent<br/>→ re-validate → re-write<br/>(max 3 attempts)"]
+    K --> I
+    J -- yes --> L["status = verified<br/>Live preview URL"]
+    J -- "no, attempts used up" --> M["status = generated"]
+```
 
-The system divides application generation into specialized stages.
+### Step-by-step
 
-                    ┌─────────────────────┐
-                    │        USER         │
-                    └──────────┬──────────┘
+1. **Request:** the frontend sends `{ projectId, prompt }`. The project's stack is read from MongoDB, never from the request.
+2. **Architecture rules:** `architectureRulesService` loads `rag/architecture/common.md` plus one rule file per detected area (`static-web`, `react-vite`, `mern`, `python-fastapi`, `java-springboot`). `techStackMatcher` maps the user's selection to these areas.
+3. **API conventions:** for Express/MERN stacks, `generationContract.js` adds fixed rules (all routes under `/api`, Bearer token auth, `backend/config/jwt.js`, `AuthContext` exports, `_id` ids, JSON error shape). These override RAG.
+4. **RAG retrieval:** the requirement + stack becomes a query embedding, and the top 3 chunks are added to the prompt (see [RAG Pipeline](#-rag-pipeline)).
+5. **Architect Agent:** returns `projectName`, `description`, `techStack`, a `files[]` plan (`path` + `purpose`) and, for full-stack apps, an `apiContract[]` (method, path, auth, body, response).
+6. **File ordering:** backend files come first, so frontend batches know which routes really exist. Inside the frontend, services/context/hooks/components come before pages, and `App`/`main` come last.
+7. **Coder Agent:** writes files 4 at a time (`BATCH_SIZE = 4`). Each batch receives the full file plan, the API contract, the endpoints already implemented by earlier backend batches, and the exports of modules already generated, so imports match.
+8. **Static validation + Fixer:** up to `MAX_FIX_ATTEMPTS = 3`. If errors remain, the files are still saved (status `validation_failed`) so the user can review, download or repair them with Modify.
+9. **Write to disk:** files are formatted with Prettier and written to `backend/generated-projects/<projectId>/`. `MONGO_URI` lines that point to hosts unreachable from the sandbox are removed from `.env` files.
+10. **Runtime validation:** `runnerService` detects the project type and starts it in Docker. For apps with login, `authSmokeTest` calls signup → login → `/me` through the frontend's `/api` proxy.
+11. **Runtime Fixer:** a failure (container crash, build error, failed smoke test) goes back to the Fixer as a `RUNTIME_ERROR`. The result is re-validated statically (with its own fix loop if needed), rewritten and run again, up to `MAX_RUNTIME_FIX_ATTEMPTS = 3`.
+12. **Save:** status is `verified` if runtime validation passed, otherwise `generated`.
+
+---
+
+## ✏️ Modify Workflow
+
+`POST /api/projects/:id/modify` with `{ userRequest }`
+
+1. The current files are validated first. The findings are given to the Modify Agent as **known problems**, so vague requests like *"fix the login"* target the real cause.
+2. If the request is about appearance (e.g. *"make the UI better"*), `uiDesignRules.js` adds a design system, and only presentation files (React sources, templates/static files, root HTML/CSS/JS) may change.
+3. **Protected files** (config and runtime data files) are never overwritten by AI output.
+4. The result is statically validated and fixed (max 2 attempts), saved to MongoDB and disk, and checked on disk by `modifyValidatorService`.
+5. The container is restarted, the auth smoke test runs again, and runtime failures go to the Fixer (max 2 attempts).
+
+---
+
+## 🤖 AI Agents
+
+| Agent | File | Input | Output |
+|---|---|---|---|
+| **Architect** | `services/architectService.js` | Requirement, stack, architecture rules, API conventions, RAG context | File plan (`path`, `purpose`), API contract, description |
+| **Coder** | `services/batchCoderService.js` | One batch of the plan, full plan, API contract, implemented endpoints, existing exports, RAG context | File contents for that batch |
+| **Fixer** | `services/fixerService.js` | All files + static or runtime errors, API conventions | Corrected files (merged over the old ones) |
+| **Modify** | `services/modifyProjectService.js` | Existing files, user request, known problems, optional UI rules | Changed / new files |
+
+The Validator, Runner and Auth Smoke Test are **deterministic code, not LLM agents**. That keeps verification reliable and repeatable.
+
+**Technology priority used by the Architect:**
+
+1. The explicitly selected technology stack
+2. Technology the user names in the requirement
+3. API conventions and architecture rules
+4. Retrieved RAG knowledge
+5. General defaults
+
+For example, if the user selects *HTML + CSS + JavaScript*, the result stays a static site even if React knowledge is retrieved.
+
+---
+
+## 🧠 AI Provider Layer
+
+`services/aiService.js` exposes one function, `generateWithAI(prompt)`, which every agent uses and which always returns parsed JSON.
+
+```mermaid
+flowchart LR
+    P["Prompt"] --> G1["Gemini model 1"]
+    G1 -- "503 overloaded<br/>(1 retry, then next)" --> G2["Gemini model 2 … n"]
+    G1 -- "429 / 404 quota or<br/>missing model (skip)" --> G2
+    G2 -- "all failed" --> Q{"Prompt fits Groq<br/>token limit?"}
+    Q -- yes --> GR["Groq · Qwen"]
+    Q -- no --> E["Error: both providers failed"]
+    G1 & G2 & GR --> J["JSON parse<br/>(strip outer code fence,<br/>fallback to first {…})"]
+```
+
+- Gemini is called with `responseMimeType: "application/json"`, and Groq with `response_format: json_object` and `temperature: 0`.
+- Groq's free tier allows ~8,000 tokens/minute, so prompts estimated above `GROQ_TPM_LIMIT − 2000` are not sent to Groq.
+
+---
+
+## 📚 RAG Pipeline
+
+### Knowledge sources
+
+```text
+backend/rag/
+├── architecture/          # Rule files loaded directly (not embedded) by the Architect
+│   ├── common.md
+│   ├── static-web.md
+│   ├── react-vite.md
+│   ├── mern.md
+│   ├── python-fastapi.md
+│   └── java-springboot.md
+└── documents/             # Embedded into MongoDB for semantic retrieval
+    ├── common/            # api-design, authentication, docker, security
+    ├── frontend/          # react-vite, static-web
+    └── backend/           # mern, node-express, python-fastapi, java-springboot
+```
+
+### Phase 1: Indexing (`npm run index:kb`)
+
+`scripts/indexKnowledgeBase.js`:
+
+1. Recursively reads every `.md` file in `rag/documents/`.
+2. Splits it into **1200-character chunks with 200-character overlap**.
+3. Embeds each chunk with `gemini-embedding-001` (`RETRIEVAL_DOCUMENT`).
+4. Stores `{ source, content, embedding, metadata: { chunkIndex, category, technology } }` in the `knowledgechunks` collection. `category` is the sub-folder and `technology` is the file name. The old chunks are deleted first.
+
+### Phase 2: Retrieval (`services/retrievalService.js`)
+
+```text
+Requirement + stack ──► query embedding (RETRIEVAL_QUERY)
                                │
+          KnowledgeChunks ─────┤ keep: category "common" + chunks whose
+                               │       technology matches the selected stack
                                ▼
-                    ┌─────────────────────┐
-                    │  User Requirements  │
-                    │  + Technology Stack │
-                    └──────────┬──────────┘
+     score = 0.7 × cosine similarity + 0.3 × technology relevance
+             (selected tech = 1.0, common = 0.8)
                                │
+                 drop score < 0.60 → sort → top 3
                                ▼
-                    ┌─────────────────────┐
-                    │    RAG Retrieval    │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Architect Agent   │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │ Architecture        │
-                    │ Blueprint           │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │     Coder Agent     │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │  Generated Project  │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │      Validator      │
-                    └──────────┬──────────┘
-                               │
-                    ┌──────────┴──────────┐
-                    │                     │
-                    ▼                     ▼
-                 VALID                 INVALID
-                    │                     │
-                    │                     ▼
-                    │            ┌─────────────────┐
-                    │            │   Fixer Agent   │
-                    │            └────────┬────────┘
-                    │                     │
-                    │                     ▼
-                    │                Re-validation
-                    │                     │
-                    └─────────────────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │   Verified Project  │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │    Docker Runner    │
-                    └──────────┬──────────┘
-                               │
-                               ▼
-                    ┌─────────────────────┐
-                    │    Live Preview     │
-                    └─────────────────────┘
-🏗️ System Architecture
-
-The application consists of four major layers:
-
-┌──────────────────────────────────────────────────────────────┐
-│                        FRONTEND                              │
-│                                                              │
-│ React + Vite + Tailwind CSS                                 │
-│                                                              │
-│ Dashboard → New Project → Project Details                   │
-│                                │                             │
-│                                ▼                             │
-│                     Application Requirements                │
-└───────────────────────────────┬──────────────────────────────┘
-                                │
-                                │ HTTP API
-                                ▼
-┌──────────────────────────────────────────────────────────────┐
-│                         BACKEND                              │
-│                                                              │
-│ Node.js + Express                                            │
-│                                                              │
-│ Generation Controller                                        │
-│          │                                                   │
-│          ▼                                                   │
-│ Generation Service                                           │
-│          │                                                   │
-│    ┌─────┴───────────────┐                                  │
-│    │                     │                                  │
-│    ▼                     ▼                                  │
-│ RAG Retrieval       Architect Agent                         │
-│    │                     │                                  │
-│    ▼                     ▼                                  │
-│ Embedding Service   Architecture                            │
-│    │                     │                                  │
-│    ▼                     ▼                                  │
-│ MongoDB Knowledge   Coder Agent                              │
-│                          │                                   │
-│                          ▼                                   │
-│                      Validator                               │
-│                          │                                   │
-│                     ┌────┴────┐                              │
-│                     │         │                              │
-│                   Valid    Invalid                           │
-│                     │         │                              │
-│                     │         ▼                              │
-│                     │    Fixer Agent                         │
-│                     │         │                              │
-│                     └─────────┘                              │
-└───────────────────────────────┬──────────────────────────────┘
-                                │
-                                ▼
-                       Generated Project
-                                │
-                                ▼
-                         Docker Runner
-                                │
-                                ▼
-                          Live Preview
-🔄 Complete System Flow
-Step 1 — Project Creation
+                 Architect / Coder prompt context
+```
 
-The user creates a project by providing:
+Both the Architect and every Coder batch retrieve knowledge. Similarity is computed in Node.js over all stored chunks, which is fine for a small curated knowledge base.
 
-Project Name
-Technology Stack
+---
 
-Example:
+## ✅ Validation Layer
 
-Project Name:
-Tic-Tac-Toe
+`services/validatorService.js` returns `{ valid, errors[], warnings[] }`. It combines the following validators:
 
-Technology Stack:
-HTML
-CSS
-JavaScript
+| Validator | Checks |
+|---|---|
+| `structureValidator` | Non-empty file list, valid entries, duplicate paths (empty files are warnings) |
+| `apiContractValidator` | Every frontend API call hits a mounted backend route; auth flow (token transport, login fields, ids, auth state) matches on both sides |
+| `moduleExportsValidator` | Every name imported from a local file is really exported (prevents blank React pages) |
+| `featureValidator` | Authentication is complete: login and signup pages, navigation between them, auth API calls |
+| `runtimeValidator` | The backend exposes a `GET /health` route (directly or through a mounted router) |
+| `dataFilesValidator` | `backend/data/*.json` is valid JSON; read-only collections ship seed data |
+| `consoleValidator` | Basic Python/Java projects: entry point, tests, no forbidden frameworks |
 
-The frontend sends this information to the backend.
+Errors are written as instructions the Fixer Agent can act on.
 
-Step 2 — Application Requirements
+---
 
-The user opens the Project Details page and provides the application requirements.
+## 🐳 Docker Runtime
 
-Example:
+`services/runnerService.js` detects the project type from the files on disk and starts a container named after the project. Ports are published on `127.0.0.1` with a random host port, and the preview URL is returned to the frontend.
 
-Create a responsive Tic-Tac-Toe game.
+| Project type | Detected by | Image | Command | Limits |
+|---|---|---|---|---|
+| `fullstack` | `backend/` + `frontend/` | `node:22` | `npm install && npm start` (backend) · `npm run build` check + `npm run dev` (frontend) | 768 MB, 1 CPU, 150 PIDs |
+| `react` | `frontend/` with React + Vite | `node:22-alpine` | `npm install && npm run dev` | 512 MB, 1 CPU, 100 PIDs |
+| `python-web` | `server.py` | `python:3.12-slim` | `python server.py` | read-only FS |
+| `java-web` | `src/Main.java` + `templates/` or `static/` | `eclipse-temurin:21-jdk` | `javac … && java Main` | read-only FS |
+| `static` | root `index.html` | `nginx:alpine` | files mounted read-only | 256 MB, 1 CPU, 100 PIDs |
+| `python` (console) | `main.py` | `python:3.12-slim` | `python main.py` + `unittest` | 256 MB, 64 PIDs, no network, 15 s |
+| `java` (console) | `src/Main.java` | `eclipse-temurin:21-jdk` | `javac` + `java Main` + `TestRunner` | 512 MB, 256 PIDs, no network, 15 s |
 
-The game should support two players.
-Display the current player's turn.
-Detect winning combinations.
-Display the winner.
-Display a draw message.
-Provide a restart button.
-Step 3 — RAG Retrieval
+All containers run with `--security-opt no-new-privileges` and `--cap-drop=ALL` (nginx gets back only the few capabilities it needs). Console and basic web projects also use `--read-only` with a writable `/tmp`.
 
-The backend combines:
+> **Docker Desktop must be running.** Generation uses Docker for runtime validation, not only for the preview.
 
-Application Requirements
-+
-Selected Technology Stack
+---
 
-and creates a retrieval query.
+## 🧩 Supported Project Types
 
-The query is converted into an embedding using:
+| Selected stack (examples) | Generated project |
+|---|---|
+| HTML / CSS / JavaScript | Static site: `index.html`, `style.css`, `script.js` |
+| React (+ Vite, Tailwind) | React + Vite SPA in `frontend/` |
+| React + Node.js / Express (+ MongoDB) | Full-stack: `frontend/` (Vite proxy `/api` → `:5001`) + `backend/` (Express, JWT Bearer auth). MongoDB when `MONGO_URI` is reachable, otherwise a JSON-file demo mode in `backend/data/` |
+| Python only | Console program `main.py` + `tests/` (standard library) |
+| Java only | Console program `src/Main.java` + `src/TestRunner.java` |
+| Python + HTML/CSS(/JS) | `server.py` on Python's built-in `http.server`, plus `templates/` and `static/` |
+| Java + HTML/CSS(/JS) | `src/Main.java` on Java's built-in `HttpServer`, plus `templates/` and `static/` |
 
-gemini-embedding-001
+Basic Python/Java projects use no frameworks (no Flask, Django, FastAPI or Spring Boot). Their logic stays in Python/Java rather than in JavaScript.
 
-The query embedding is compared with the embeddings stored in MongoDB.
+---
 
-The system retrieves the most relevant knowledge chunks.
+## 🗄️ Database Models
 
-Step 4 — Architect Agent
+```text
+User                 Project                    KnowledgeChunk          DeletedProject
+├── name             ├── user → User            ├── source              ├── user → User
+├── email (unique)   ├── name                   ├── content             ├── projectId
+├── password (hash)  ├── description            ├── embedding [Number]  ├── name, description
+└── timestamps       ├── techStack [String]     ├── metadata            ├── techStack, status
+                     ├── status                 │   (chunkIndex,        ├── projectCreatedAt
+                     ├── files [{path,content}] │    category,          └── deletedAt
+                     └── timestamps             │    technology)
+                                                └── timestamps
+```
 
-The Architect Agent receives:
+**Project status values:** `active` (created, not generated yet) → `verified` (validated and ran in Docker) / `generated` (validated, runtime check failed) / `validation_failed` (static errors remain, files saved for review).
 
-User Requirements
-+
-Selected Technology Stack
-+
-Retrieved RAG Knowledge
+Generated files live in **MongoDB** (source of truth) and in **`backend/generated-projects/<projectId>/`** (for Docker and ZIP download, git-ignored).
 
-The Architect Agent creates a project blueprint.
+---
 
-For a simple static Tic-Tac-Toe application, it may produce:
+## 🔌 REST API
 
-index.html
-style.css
-script.js
-README.md
-.gitignore
+All routes except signup/login/logout require the `token` cookie. Every project route checks that the project belongs to the logged-in user.
 
-Each file contains a clear purpose.
+### Auth: `/api/auth`
 
-Example:
+| Method | Path | Description |
+|---|---|---|
+| POST | `/signup` | Create an account (rate-limited: 10/hour per IP) |
+| POST | `/login` | Log in and set an HttpOnly JWT cookie valid for 7 days (10 failed attempts per 15 min) |
+| GET | `/me` | Current user |
+| POST | `/logout` | Clear the cookie |
 
-{
-  "path": "script.js",
-  "purpose": "Contains game state, player turn management, win detection and restart functionality."
-}
-Step 5 — Batch Code Generation
+### Projects: `/api/projects`
 
-The architecture is passed to the Coder Agent.
+| Method | Path | Description |
+|---|---|---|
+| POST | `/` | Create a project `{ name, description?, techStack[] }` |
+| GET | `/` | List the user's projects |
+| GET | `/history` | Deleted projects |
+| GET | `/:id` | Project details |
+| GET | `/:id/files` | Generated files |
+| GET | `/:id/download` | ZIP download |
+| POST | `/:id/run` | Run in Docker (with runtime auto-fix) and return preview URL(s) |
+| POST | `/:id/modify` | Modify with `{ userRequest }` |
+| DELETE | `/:id` | Stop the container, delete files, record in history |
 
-Large projects may contain many files, so the system generates files in batches.
+### Generation: `/api/generate`
 
-Current configuration:
+| Method | Path | Body |
+|---|---|---|
+| POST | `/` | `{ projectId, prompt }` |
 
-BATCH_SIZE = 4
+Generate, run, modify and delete are wrapped in `withProjectLock`. A second operation on the same project while one is running returns **409 Conflict**.
 
-Example:
+---
 
-Project
-  │
-  ├── Batch 1
-  │   ├── file1
-  │   ├── file2
-  │   ├── file3
-  │   └── file4
-  │
-  ├── Batch 2
-  │   ├── file5
-  │   ├── file6
-  │   ├── file7
-  │   └── file8
-  │
-  └── Batch 3
-      └── ...
+## 📁 Project Structure
 
-The generated files are combined into a single project.
-
-Step 6 — Validation
-
-The Validator checks the generated project.
-
-Validation includes:
-
-✓ Required files
-✓ Duplicate files
-✓ Missing files
-✓ Project structure
-✓ Dependencies
-✓ Frontend routes
-✓ Backend routes
-✓ API consistency
-✓ Controller relationships
-✓ Model relationships
-✓ Technology-stack compliance
-
-The Validator returns:
-
-{
-  "valid": true,
-  "errors": []
-}
-
-or:
-
-{
-  "valid": false,
-  "errors": [
-    "Missing frontend route",
-    "Missing dependency"
-  ]
-}
-Step 7 — Self-Healing
-
-If validation fails, the Fixer Agent receives:
-
-Generated Project
-+
-Validation Errors
-
-The Fixer Agent generates corrected files.
-
-The project is then validated again.
-
-Validation
-    ↓
-Invalid
-    ↓
-Fixer Agent
-    ↓
-Updated Files
-    ↓
-Validation
-    ↓
-Valid
-
-The current maximum number of fixer attempts is:
-
-3
-
-This creates a self-healing generation loop.
-
-Step 8 — Project Storage
-
-After successful generation, project information and generated files are stored in MongoDB.
-
-Stored information includes:
-
-Project Name
-Description
-Technology Stack
-Status
-Generated Files
-Created At
-Updated At
-Step 9 — Docker Execution
-
-The generated project can be executed inside an isolated Docker environment.
-
-The system supports two major project types.
-
-Static Applications
-HTML
-CSS
-JavaScript
-
-These applications are served using:
-
-Nginx
-Full-Stack Applications
-React
-+
-Node.js
-+
-Express
-
-These applications can run using:
-
-Node.js
-Vite
-Express
-
-inside Docker.
-
-Step 10 — Live Preview
-
-Once the Docker container starts successfully:
-
-Generated Project
-       ↓
-Docker Container
-       ↓
-Port Mapping
-       ↓
-Live Preview
-
-The user can interact with the generated application.
-
-🤖 AI Agents
-Architect Agent
-Responsibility
-
-The Architect Agent designs the complete project architecture.
-
-It determines:
-
-Required files
-File structure
-File responsibilities
-Technology compatibility
-Dependencies
-Frontend/backend separation
-API structure
-Database requirements
-
-It does not generate source code.
-
-Coder Agent
-Responsibility
-
-The Coder Agent converts the architecture blueprint into actual source code.
-
-Input:
-
-Architecture Blueprint
-
-Output:
-
-Source Files
-
-The Coder Agent follows the architecture generated by the Architect Agent.
-
-Validator
-Responsibility
-
-The Validator verifies whether the generated project is structurally and architecturally consistent.
-
-It checks:
-
-File existence
-Duplicate files
-Dependencies
-Routes
-API consistency
-Frontend navigation
-Backend structure
-Technology stack
-Project architecture
-Fixer Agent
-Responsibility
-
-The Fixer Agent automatically corrects problems detected by the Validator.
-
-Input:
-
-Generated Files
-+
-Validation Errors
-
-Output:
-
-Corrected Files
-📚 Retrieval-Augmented Generation (RAG)
-
-RAG allows the system to provide project-specific architectural knowledge to the Architect Agent.
-
-Instead of depending entirely on the LLM's general knowledge, the system retrieves relevant engineering rules from a custom knowledge base.
-
-📂 RAG Knowledge Base
-
-Current knowledge documents:
-
-backend/
-└── rag/
-    └── documents/
-        ├── static-web.md
-        ├── react-vite.md
-        ├── mern.md
-        ├── authentication.md
-        └── docker.md
-static-web.md
-
-Contains rules for:
-
-HTML
-CSS
-Vanilla JavaScript
-Static application architecture
-Static project structure
-Nginx execution
-react-vite.md
-
-Contains rules for:
-
-React
-Vite
-React components
-React Router
-React project structure
-mern.md
-
-Contains rules for:
-
-MongoDB
-Express
-React
-Node.js
-Backend/frontend separation
-API architecture
-authentication.md
-
-Contains rules for:
-
-User authentication
-JWT
-Password hashing
-Authentication middleware
-Protected resources
-docker.md
-
-Contains rules for:
-
-Docker runtime
-Node.js applications
-Vite applications
-Static applications
-Ports
-Runtime requirements
-🔄 RAG Pipeline
-
-The RAG pipeline consists of two major phases.
-
-Phase 1 — Knowledge Indexing
-Markdown Documents
-        ↓
-Document Chunking
-        ↓
-Gemini Document Embedding
-        ↓
-MongoDB
-Phase 2 — Knowledge Retrieval
-User Requirement
-+
-Selected Technology Stack
-        ↓
-Query Embedding
-        ↓
-Cosine Similarity
-        ↓
-Rank Knowledge Chunks
-        ↓
-Top-K Relevant Chunks
-        ↓
-Architect Agent
-🧩 Knowledge Indexing
-
-Knowledge indexing is handled by:
-
-backend/scripts/indexKnowledgeBase.js
-
-The script:
-
-Reads Markdown files.
-Splits documents into chunks.
-Generates embeddings.
-Stores the embeddings in MongoDB.
-
-Current configuration:
-
-Chunk Size: 1200 characters
-Chunk Overlap: 200 characters
-🧠 Embedding Model
-
-The project uses:
-
-gemini-embedding-001
-
-for document and query embeddings.
-
-Current embedding size:
-
-3072 dimensions
-
-The embedding service provides:
-
-generateDocumentEmbedding()
-generateQueryEmbedding()
-
-Document embeddings use:
-
-RETRIEVAL_DOCUMENT
-
-Query embeddings use:
-
-RETRIEVAL_QUERY
-🔎 Semantic Retrieval
-
-The retrieval service is:
-
-backend/services/retrievalService.js
-
-It performs:
-
-Query
- ↓
-Query Embedding
- ↓
-MongoDB Knowledge Chunks
- ↓
-Cosine Similarity
- ↓
-Sorting
- ↓
-Top-K Results
-
-Example query:
-
-Create a Tic-Tac-Toe game using HTML CSS and JavaScript
-
-Example retrieval:
-
-1. static-web.md
-   Score: 0.6757
-
-2. react-vite.md
-   Score: 0.5905
-
-3. docker.md
-   Score: 0.5590
-
-The highest-ranked relevant knowledge is passed to the Architect Agent.
-
-🧠 Technology Priority
-
-The Architect Agent follows this priority order:
-
-1. Explicitly selected technology stack
-2. Explicit technology requested by the user
-3. Relevant RAG knowledge
-4. Application requirements
-5. General architecture defaults
-
-This prevents RAG knowledge from overriding the user's selected technologies.
-
-For example:
-
-Selected Stack:
-
-HTML + CSS + JavaScript
-
-must remain a static application even if React-related knowledge is retrieved.
-
-🛠️ Technology Stack
-Frontend
-React.js
-Vite
-Tailwind CSS
-Redux Toolkit
-React Router
-Axios
-Backend
-Node.js
-Express.js
-Database
-MongoDB
-Mongoose
-MongoDB Atlas
-Generative AI
-Google Gemini
-@google/genai
-
-gemini-3.1-flash-lite
-gemini-embedding-001
-RAG
-Gemini Embeddings
-MongoDB
-Cosine Similarity
-Semantic Retrieval
-Knowledge Chunks
-Containerization
-Docker
-Docker Desktop
-Nginx
-Node.js Alpine
-Development Tools
-Git
-GitHub
-VS Code
-Nodemon
-Prettier
-📁 Project Structure
+```text
 App-builder/
+├── backend/
+│   ├── app.js                    # Express app, CORS, routes
+│   ├── server.js                 # Env checks, DB connect, start server
+│   ├── config/db.js              # Mongoose connection (sanitizeFilter on)
+│   ├── controllers/              # auth, project (run/modify/delete…), generation
+│   ├── middleware/authMiddleware.js
+│   ├── models/                   # User, Project, KnowledgeChunk, DeletedProject
+│   ├── routes/                   # authRoutes, projectRoutes, generationRoutes
+│   ├── rag/
+│   │   ├── architecture/         # Stack rule files for the Architect
+│   │   └── documents/            # Knowledge base for embeddings
+│   ├── scripts/
+│   │   ├── indexKnowledgeBase.js # Build the RAG index
+│   │   └── dev/                  # Manual test scripts (not automated tests)
+│   ├── services/
+│   │   ├── generationService.js  # Pipeline orchestrator
+│   │   ├── aiService.js          # Gemini → Groq with JSON parsing
+│   │   ├── architectService.js   # Architect Agent
+│   │   ├── batchCoderService.js  # Coder Agent
+│   │   ├── fixerService.js       # Fixer Agent
+│   │   ├── modifyProjectService.js # Modify Agent
+│   │   ├── embeddingService.js   # Gemini embeddings
+│   │   ├── retrievalService.js   # Semantic retrieval
+│   │   ├── architectureRulesService.js
+│   │   ├── techStackMatcher.js   # Stack → knowledge areas
+│   │   ├── generationContract.js # Shared API conventions
+│   │   ├── consoleProject.js     # Basic Python/Java projects
+│   │   ├── uiDesignRules.js      # Design rules for UI modifications
+│   │   ├── validatorService.js   # Runs all validators
+│   │   ├── validators/           # 7 focused validators
+│   │   ├── runnerService.js      # Docker runner
+│   │   ├── authSmokeTest.js      # Signup/login check on the running app
+│   │   ├── sandboxEnv.js         # Sanitises generated .env files
+│   │   ├── fileGenerationService.js / writeProjectFiles.js / syncProjectFiles.js
+│   │   └── modifyValidatorService.js
+│   ├── utils/                    # errorResponse, projectLock
+│   └── generated-projects/       # Output (git-ignored)
 │
 ├── frontend/
-│   │
-│   └── src/
-│       ├── components/
-│       │   ├── Sidebar/
-│       │   ├── Navbar/
-│       │   ├── Button/
-│       │   ├── Input/
-│       │   ├── Loader/
-│       │   ├── Badge/
-│       │   ├── Card/
-│       │   ├── UI/
-│       │   ├── PromptBox/
-│       │   ├── AgentStatus/
-│       │   └── GenerationProgress/
-│       │
-│       ├── layouts/
-│       │   └── DashboardLayout/
-│       │
-│       ├── pages/
-│       │   ├── Home/
-│       │   ├── Login/
-│       │   ├── Signup/
-│       │   ├── Dashboard/
-│       │   └── ProjectDetails/
-│       │
-│       ├── redux/
-│       ├── services/
-│       ├── hooks/
-│       ├── utils/
-│       └── assets/
-│
-├── backend/
-│   │
-│   ├── config/
-│   │
-│   ├── controllers/
-│   │   ├── generationController.js
-│   │   └── projectController.js
-│   │
-│   ├── generated-projects/
-│   │
-│   ├── middleware/
-│   │
-│   ├── models/
-│   │   ├── Project.js
-│   │   └── KnowledgeChunk.js
-│   │
-│   ├── routes/
-│   │   ├── generationRoutes.js
-│   │   └── projectRoutes.js
-│   │
-│   ├── services/
-│   │   ├── aiService.js
-│   │   ├── architectService.js
-│   │   ├── coderService.js
-│   │   ├── batchCoderService.js
-│   │   ├── fileGenerationService.js
-│   │   ├── generationService.js
-│   │   ├── validatorService.js
-│   │   ├── fixerService.js
-│   │   ├── syncProjectFiles.js
-│   │   ├── runnerService.js
-│   │   ├── embeddingService.js
-│   │   └── retrievalService.js
-│   │
-│   ├── rag/
-│   │   └── documents/
-│   │       ├── static-web.md
-│   │       ├── react-vite.md
-│   │       ├── mern.md
-│   │       ├── authentication.md
-│   │       └── docker.md
-│   │
-│   ├── scripts/
-│   │   └── indexKnowledgeBase.js
-│   │
-│   ├── .env
-│   ├── .gitignore
-│   ├── app.js
-│   ├── server.js
-│   └── package.json
+│   ├── src/
+│   │   ├── pages/                # Home, Login, Signup, Dashboard, ProjectDetails, History
+│   │   ├── components/           # Navbar, Sidebar, NewProject, ProjectsList, PromptBox,
+│   │   │                         # AgentStatus, GenerationProgress, StatsCards, ui/ (shadcn)…
+│   │   ├── layouts/DashboardLayout/
+│   │   ├── lib/                  # api base URL, theme, project type helpers
+│   │   ├── App.jsx               # Routes (protected: dashboard, history, projects/:id)
+│   │   └── main.jsx
+│   └── vite.config.js
 │
 └── README.md
-📦 Important Backend Services
-Service	Responsibility
-aiService.js	Communicates with Gemini
-architectService.js	Generates project architecture
-coderService.js	Generates source code
-batchCoderService.js	Generates files in batches
-generationService.js	Orchestrates the complete generation pipeline
-validatorService.js	Validates generated projects
-fixerService.js	Fixes validation errors
-fileGenerationService.js	Creates generated project files
-embeddingService.js	Generates Gemini embeddings
-retrievalService.js	Performs semantic knowledge retrieval
-runnerService.js	Runs generated projects using Docker
-syncProjectFiles.js	Synchronizes generated project files
-🗄️ Database Architecture
-Project Collection
+```
 
-The Project model stores generated applications.
+---
 
-Project
-│
-├── name
-├── description
-├── techStack[]
-├── status
-├── files[]
-│   ├── path
-│   └── content
-├── createdAt
-└── updatedAt
-KnowledgeChunk Collection
+## 🚀 Getting Started
 
-The KnowledgeChunk model stores RAG knowledge.
+### Prerequisites
 
-KnowledgeChunk
-│
-├── source
-├── content
-├── embedding[]
-├── metadata
-├── createdAt
-└── updatedAt
-🔌 API Architecture
-Project APIs
-Create Project
-POST /api/projects
+- **Node.js 20+**
+- **MongoDB** (local or Atlas)
+- **Docker Desktop** (running)
+- A **Gemini API key** (required for embeddings) and optionally a **Groq API key**
 
-Creates a new project.
+### 1. Install
 
-Get Projects
-GET /api/projects
+```bash
+git clone https://github.com/abhicse12/Smart-App-Builder.git
+cd Smart-App-Builder
 
-Returns all projects.
+cd backend && npm install
+cd ../frontend && npm install
+```
 
-Get Project
-GET /api/projects/:id
+### 2. Configure
 
-Returns a specific project.
+```bash
+cp backend/.env.example backend/.env      # then fill in the values
+cp frontend/.env.example frontend/.env
+```
 
-Get Project Files
-GET /api/projects/:id/files
+### 3. Build the RAG index (once, and after editing `rag/documents/`)
 
-Returns generated files.
-
-Download Project
-GET /api/projects/:id/download
-
-Downloads the generated project.
-
-Run Project
-POST /api/projects/:id/run
-
-Runs the generated project using Docker.
-
-Delete Project
-DELETE /api/projects/:id
-
-Deletes a project.
-
-🤖 Generation API
-Generate Application
-POST /api/generate
-
-Request:
-
-{
-  "projectId": "PROJECT_ID",
-  "prompt": "Create a Tic-Tac-Toe game using HTML CSS and JavaScript"
-}
-
-The endpoint starts the complete generation pipeline.
-
-🔐 Environment Variables
-
-Create:
-
-backend/.env
-
-Example:
-
-PORT=5000
-
-MONGO_URI=your_mongodb_connection_string
-
-GEMINI_API_KEY=your_gemini_api_key
-
-Never commit .env to GitHub.
-
-Add:
-
-.env
-
-to .gitignore.
-
-🚀 Installation
-1. Clone Repository
-git clone <repository-url>
-cd App-builder
-2. Install Backend Dependencies
+```bash
 cd backend
-npm install
-3. Install Frontend Dependencies
-cd ../frontend
-npm install
-4. Configure Environment Variables
+npm run index:kb
+```
 
-Create:
+### 4. Run
 
-backend/.env
+```bash
+# Terminal 1
+cd backend
+npm run dev        # or: npm start  →  http://localhost:5000
 
-Add:
+# Terminal 2
+cd frontend
+npm run dev        # → http://localhost:5173
+```
 
-PORT=5000
-MONGO_URI=your_mongodb_connection_string
-GEMINI_API_KEY=your_gemini_api_key
-📚 RAG Knowledge Base Setup
+Open `http://localhost:5173`, sign up, create a project, select a stack, and describe your app on the project page.
 
-Before using RAG, index the knowledge base.
+---
 
-From the backend directory:
+## 🔐 Environment Variables
 
-node scripts/indexKnowledgeBase.js
+### `backend/.env`
 
-The script performs:
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `MONGO_URI` | ✅ | — | MongoDB connection string |
+| `JWT_SECRET` | ✅ | — | JWT signing secret (32+ characters recommended) |
+| `GEMINI_API_KEY` | ✅* | — | Gemini generation + embeddings |
+| `GROQ_API_KEY` | — | — | Groq fallback |
+| `PORT` | — | `5000` | API port |
+| `GEMINI_MODELS` | — | see above | Comma-separated Gemini model order |
+| `GROQ_MODEL` | — | `qwen/qwen3.8-27b` | Groq fallback model |
+| `GROQ_TPM_LIMIT` | — | `8000` | Groq tokens/minute limit |
+| `CLIENT_URL` | — | `http://localhost:5173` | Allowed frontend origin(s), comma-separated |
+| `NODE_ENV` | — | — | `production` hides error details and sets a `Secure` cookie |
 
-Read Documents
-      ↓
-Chunk Documents
-      ↓
-Generate Embeddings
-      ↓
-Store Embeddings in MongoDB
+\* The server starts without it, but RAG retrieval needs Gemini embeddings.
 
-Expected result:
+### `frontend/.env`
 
-Knowledge base indexed successfully!
-Total chunks: 5
-▶️ Running the Application
-Start Backend
+| Variable | Default | Purpose |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:5000` | Backend base URL (without `/api`) |
 
-From:
+---
 
-backend/
+## 🛡️ Security Measures
 
-run:
+- Passwords hashed with **bcrypt** (input capped at 72 bytes).
+- JWT stored in an **HttpOnly, SameSite=Lax** cookie (`Secure` in production).
+- **Rate limiting** on login (failed attempts only) and signup.
+- **`sanitizeFilter`** in Mongoose blocks NoSQL operator injection.
+- Every project query is scoped to the logged-in user.
+- Input length limits on project name, description and stack.
+- Generated code runs only in **Docker** with memory/CPU/PID limits, `no-new-privileges` and dropped capabilities, published on `127.0.0.1` only.
+- Production error responses omit internal details.
 
-npm start
+---
 
-Backend runs on:
+## ⚠️ Limitations
 
-http://localhost:5000
-Start Frontend
+- Runs on a single backend process: the project lock is in memory.
+- Generation is a long synchronous HTTP request with no streaming progress.
+- RAG similarity is computed in application code. That is fine for a small knowledge base, but it does not scale to large corpora.
+- `Next.js`, `MySQL` and `PostgreSQL` can be selected, but they have no dedicated rule or knowledge files yet.
+- The AI providers' free-tier limits can slow down or block generation.
+- There are no automated tests yet; `backend/scripts/dev/` holds manual scripts.
 
-From:
+---
 
-frontend/
+## 🔮 Future Enhancements
 
-run:
+- MongoDB Atlas Vector Search instead of in-memory cosine similarity
+- Streaming agent progress (Server-Sent Events / WebSockets) and background jobs
+- Test Agent (unit and end-to-end test generation) and browser-based UI testing
+- Security Agent (dependency and code scanning)
+- Rule and knowledge files for Next.js, SQL databases, Django/Flask
+- GitHub export and one-click deployment
+- Project versioning and diff view for modifications
+- Exposing generation, validation and RAG search as an **MCP (Model Context Protocol) server** for IDE-based AI assistants
 
-npm run dev
+---
 
-Open the Vite development URL displayed in the terminal.
+## 🎓 Academic Significance
 
-🐳 Docker Runtime
+The project combines Generative AI, Large Language Models, Multi-Agent Systems, Retrieval-Augmented Generation, vector embeddings and semantic search, contract-driven code generation, automated static and runtime validation, self-healing loops, container sandboxing and full-stack web development. It shows AI used inside a structured software engineering workflow, not only as an isolated code generator.
 
-Docker Desktop must be installed and running to execute generated projects.
+---
 
-The runner detects the project type automatically.
+## 👨‍💻 Author
 
-Static Application
-
-For projects containing:
-
-index.html
-style.css
-script.js
-
-the runner uses:
-
-nginx:alpine
-
-The generated project is mounted into the Nginx container and served as a static website.
-
-Full-Stack Application
-
-For projects containing:
-
-frontend/
-backend/
-
-the runner can start:
-
-Node.js Backend
-+
-Vite Frontend
-
-inside a Docker container.
-
-Docker Runtime Restrictions
-
-Generated applications run with resource restrictions such as:
-
-Memory: 512 MB
-CPU: 1
-PIDs Limit: 100
-No New Privileges
-
-These restrictions provide a more controlled execution environment for generated applications.
-
-🧪 Example Workflow
-User Input
-Project Name:
-Tic-Tac-Toe
-
-Technology Stack:
-HTML
-CSS
-JavaScript
-
-Application Requirements:
-
-Create a responsive Tic-Tac-Toe game for two players.
-
-The game should:
-
-- Display the current player's turn
-- Detect winning combinations
-- Display the winner
-- Display a draw message
-- Provide a restart button
-RAG Retrieval
-
-The system retrieves relevant knowledge.
-
-Example:
-
-static-web.md
-docker.md
-react-vite.md
-
-The most relevant static-web knowledge is provided to the Architect Agent.
-
-Architect Output
-
-Example:
-
-index.html
-style.css
-script.js
-README.md
-.gitignore
-Coder Output
-
-The Coder Agent generates the source code for these files.
-
-Validation
-
-The Validator checks:
-
-✓ Required files exist
-✓ No duplicate files
-✓ Static architecture
-✓ No unnecessary backend
-✓ No React
-✓ No Vite
-✓ Technology-stack compliance
-Docker Execution
-
-The generated project is served using Nginx.
-
-Generated Project
-       ↓
-Nginx Container
-       ↓
-Port Mapping
-       ↓
-Live Preview
-🔧 Self-Healing Example
-
-Suppose the generated HTML contains:
-
-<script src="game.js"></script>
-
-but the actual generated file is:
-
-script.js
-
-The Validator detects the inconsistency:
-
-HTML references game.js
-but game.js does not exist.
-
-The Fixer Agent receives this error.
-
-Validation Error
-       ↓
-Fixer Agent
-       ↓
-Correct File
-       ↓
-Re-validation
-       ↓
-Validation Successful
-🧠 Why RAG?
-
-A general-purpose LLM may generate different architectures for similar requirements.
-
-RAG provides predefined project-specific engineering knowledge.
-
-For example:
-
-User:
-Create a simple Tic-Tac-Toe game.
-
-Technology:
-HTML + CSS + JavaScript
-
-RAG retrieves:
-
-static-web.md
-
-which provides architectural guidance such as:
-
-Use index.html
-Use style.css
-Use script.js
-Avoid React
-Avoid Vite
-Avoid Node.js
-Avoid unnecessary backend services
-
-The Architect Agent uses this context to produce a more consistent architecture.
-
-🧠 Why Multi-Agent Architecture?
-
-Instead of asking a single AI model to perform the entire task, the system separates responsibilities.
-
-Architect
-    ↓
-Architecture
-
-Coder
-    ↓
-Implementation
-
-Validator
-    ↓
-Verification
-
-Fixer
-    ↓
-Correction
-
-Runner
-    ↓
-Execution
-
-This makes the system easier to:
-
-Debug
-Maintain
-Extend
-Validate
-Monitor
-Improve
-🔐 Technology Stack Enforcement
-
-The Architect Agent follows:
-
-1. Explicitly selected technology stack
-2. Explicit technology requested by user
-3. Relevant RAG knowledge
-4. Application requirements
-5. General architecture defaults
-
-This prevents retrieved knowledge from silently changing the user's selected stack.
-
-Example:
-
-Selected:
-
-HTML + CSS + JavaScript
-
-Even if the RAG system retrieves:
-
-react-vite.md
-
-the Architect Agent must not automatically convert the project into React.
-
-📊 Complete Architecture Summary
-                         USER
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │ Requirements + Stack│
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │    RAG Retrieval    │
-                │ Gemini + MongoDB    │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │   Architect Agent   │
-                │ Architecture Design │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │     Coder Agent     │
-                │   Code Generation   │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │      Validator      │
-                │ Project Verification│
-                └──────────┬──────────┘
-                           │
-                    ┌──────┴──────┐
-                    │             │
-                  VALID        INVALID
-                    │             │
-                    │             ▼
-                    │      ┌──────────────┐
-                    │      │ Fixer Agent  │
-                    │      └──────┬───────┘
-                    │             │
-                    │             ▼
-                    │       Re-validation
-                    │
-                    ▼
-                ┌─────────────────────┐
-                │   Verified Project  │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │    Docker Runner    │
-                │  Isolated Runtime   │
-                └──────────┬──────────┘
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │    Live Preview     │
-                └─────────────────────┘
-📈 Advantages
-
-The proposed system provides several advantages:
-
-1. Automated Development
-
-Reduces manual effort involved in project setup and implementation.
-
-2. Structured Architecture
-
-The Architect Agent creates a project blueprint before code generation.
-
-3. Technology Control
-
-The user's selected technology stack is explicitly enforced.
-
-4. Knowledge-Guided Generation
-
-RAG provides project-specific architectural knowledge to the AI.
-
-5. Automated Validation
-
-Generated projects are checked before execution.
-
-6. Self-Healing
-
-The Fixer Agent can automatically correct detected structural problems.
-
-7. Isolated Execution
-
-Docker provides an isolated runtime for generated applications.
-
-8. Live Preview
-
-Users can run and interact with generated applications.
-
-9. Extensible Architecture
-
-Additional agents can be added in the future without redesigning the complete system.
-
-🚀 Future Enhancements
-
-Possible future improvements include:
-
-MongoDB Atlas Vector Search
-Dedicated Test Agent
-Browser-based automated testing
-Runtime error detection
-Security validation agent
-Unit-test generation
-End-to-end test generation
-Automatic dependency verification
-GitHub repository generation
-One-click deployment
-Project versioning
-Streaming agent progress
-Agent execution logs
-Multi-model support
-Human approval checkpoints
-Automated CI/CD pipeline
-Advanced vector database integration
-Automatic knowledge-base ingestion
-Runtime application monitoring
-🎓 Academic Significance
-
-This project demonstrates the practical integration of modern Artificial Intelligence and Software Engineering concepts.
-
-Concepts Demonstrated
-Generative AI
-        +
-Large Language Models
-        +
-Multi-Agent Systems
-        +
-Retrieval-Augmented Generation
-        +
-Vector Embeddings
-        +
-Semantic Search
-        +
-Automated Code Generation
-        +
-Automated Validation
-        +
-Self-Healing Systems
-        +
-Docker Containerization
-        +
-Full-Stack Development
-
-The project demonstrates how AI can be integrated into a structured software engineering workflow instead of being used only for isolated code generation.
-
-🔮 Long-Term Vision
-
-The architecture can eventually evolve into a more autonomous AI software engineering platform.
-
-Future pipeline:
-
-User Requirement
-       ↓
-RAG
-       ↓
-Architect Agent
-       ↓
-Coder Agent
-       ↓
-Test Agent
-       ↓
-Validator
-       ↓
-Fixer Agent
-       ↓
-Security Agent
-       ↓
-Docker Build
-       ↓
-Runtime Testing
-       ↓
-Browser Testing
-       ↓
-Final Verification
-       ↓
-Deployment
-       ↓
-Production Application
-
-The long-term objective is to move toward an AI system capable of handling the complete software development lifecycle from requirement analysis to deployment.
-
-📌 Project Status
-
-Current implemented capabilities include:
-
-✓ Project Creation
-✓ Technology Stack Selection
-✓ Natural Language Requirements
-✓ Architect Agent
-✓ Batch Code Generation
-✓ RAG Knowledge Base
-✓ Gemini Document Embeddings
-✓ Gemini Query Embeddings
-✓ Semantic Retrieval
-✓ MongoDB Knowledge Storage
-✓ Project Validation
-✓ Fixer Agent
-✓ Self-Healing Loop
-✓ Generated Project Storage
-✓ Docker Execution
-✓ Static Application Runtime
-✓ Full-Stack Application Runtime
-✓ Live Preview
-👨‍💻 Author
-
-Abhishek Pandey
-
-B.Tech — Computer Science & Engineering
-Artificial Intelligence & Machine Learning
-
+**Abhishek Pandey**
+B.Tech, Computer Science & Engineering (Artificial Intelligence & Machine Learning)
 G H Raisoni College of Engineering and Management, Pune
 
-GitHub:
-https://github.com/abhicse12
+- GitHub: [abhicse12](https://github.com/abhicse12)
+- LinkedIn: [abhishekpandey12](https://linkedin.com/in/abhishekpandey12)
 
-LinkedIn:
-https://linkedin.com/in/abhishekpandey12
+## 📜 License
 
-📜 License
-
-This project is developed for academic, educational, and research purposes.
-
-Add an appropriate open-source license if the project is publicly released.
+Developed for academic, educational and research purposes. Add an open-source license before any public release.

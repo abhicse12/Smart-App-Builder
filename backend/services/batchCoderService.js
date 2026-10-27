@@ -1,5 +1,11 @@
 import generateWithAI from "./aiService.js";
 import retrieveRelevantKnowledge from "./retrievalService.js";
+import {
+  API_CONVENTIONS,
+  formatApiContract,
+  usesApiConventions,
+} from "./generationContract.js";
+import { buildConsoleCoderPrompt } from "./consoleProject.js";
 
 const generateBatchCode = async ({
   projectName,
@@ -7,7 +13,74 @@ const generateBatchCode = async ({
   techStack,
   files,
   allFiles,
+  apiContract = [],
+  implementedEndpoints = [],
+  generatedModules = [],
+  basicProject = null,
 }) => {
+  // Basic Python / Java project (console or built-in web server): its
+  // own short prompt, no RAG
+  if (basicProject) {
+    return generateWithAI(
+      buildConsoleCoderPrompt({
+        project: basicProject,
+        projectName,
+        description,
+        files,
+        allFiles,
+        generatedModules,
+      })
+    );
+  }
+
+  // Shared API contract for Express + Vite projects. Backend files are
+  // generated first, so frontend batches see the routes that really exist.
+  const contractSection = usesApiConventions(techStack)
+    ? `
+${API_CONVENTIONS}
+
+==================================================
+API CONTRACT (FROM THE ARCHITECT)
+==================================================
+
+${formatApiContract(apiContract)}
+
+==================================================
+BACKEND ENDPOINTS ALREADY GENERATED (AUTHORITATIVE)
+==================================================
+
+These routes exist in backend files generated in earlier batches.
+Frontend code MUST call exactly these methods and paths (through the
+api client, without the /api prefix). If they differ from the API
+contract above, these win. Backend files in this batch must not change
+them.
+
+${
+  implementedEndpoints.length > 0
+    ? implementedEndpoints
+        .map((endpoint) => `${endpoint.method} ${endpoint.path}`)
+        .join("\n")
+    : "None generated yet."
+}
+`
+    : "";
+
+  // Exports of files from earlier batches, so imports use real names
+  const modulesSection =
+    generatedModules.length > 0
+      ? `
+==================================================
+MODULES ALREADY GENERATED (AUTHORITATIVE EXPORTS)
+==================================================
+
+Files from earlier batches and the names they export. When a requested
+file imports from one of them, import ONLY these names ("default" means
+use a default import). Do not assume any other export exists.
+
+${generatedModules.join("\n")}
+`
+      : "";
+
     const retrievalQuery = `
   Project Name:
   ${projectName}
@@ -106,6 +179,9 @@ COMPLETE PROJECT STRUCTURE
 
 ${allFiles.map((file) => `- ${file.path}`).join("\n")}
 
+${contractSection}
+${modulesSection}
+
 ==================================================
 BATCH OUTPUT RULES
 ==================================================
@@ -200,7 +276,16 @@ Describing it in comments is NOT sufficient.
 4. JSON data files:
 
    - If backend/data/*.json files are in REQUESTED FILES,
-     generate them with valid JSON (e.g. [] or seed records).
+     generate them as COMPLETE, valid JSON arrays (never truncated).
+   - Collections the app DISPLAYS but users do not create in the UI
+     (product catalogs, menus, courses, articles, rooms, etc.) MUST be
+     seeded with 8-12 realistic records. Use exactly the fields the
+     model and the frontend use, a unique string "_id" per record,
+     and for images an https URL such as
+     https://picsum.photos/seed/<short-slug>/600/400 .
+     Keep each record short so the file is never cut off.
+   - Collections users create themselves (users, orders, carts,
+     history) start as [].
    - The JSON storage code MUST create the backend/data directory
      and any missing JSON file at runtime (with []) before reading,
      so the app works even if those files were not generated.
@@ -224,23 +309,22 @@ FRONTEND / BACKEND CONSISTENCY
 
 Every frontend API request must correspond to an existing backend route.
 
-Use the exact API paths defined by the backend architecture.
+Use the exact API paths from the API contract / generated backend
+endpoints. Do not invent API endpoints.
 
-Do not invent API endpoints.
+Frontend API requests must use the centralized API client
+(frontend/src/services/api.js), created with:
 
-Frontend API requests must use the centralized API client.
+axios.create({ baseURL: "/api" })
 
-Do NOT hardcode backend URLs inside React components.
+and called WITHOUT the /api prefix:
 
-Use:
+api.get("/patients")        -> GET /api/patients
 
-api.get("/patients")
+api.post("/patients", data) -> POST /api/patients
 
-api.post("/patients", data)
-
-instead of:
-
-fetch("http://localhost:5001/api/patients")
+Do NOT hardcode backend URLs, and do NOT call fetch("http://localhost:5001/...")
+or paths outside /api: the Vite dev server only proxies /api to the backend.
 
 ==================================================
 FRONTEND UI / STYLING RULES
@@ -466,7 +550,8 @@ Before returning the response, internally verify:
 
 3. Every import points to an existing file or installed dependency.
 
-4. Every API endpoint exists in the backend architecture.
+4. Every frontend API call matches a backend route (method AND full path,
+   including the /api prefix added by the api client).
 
 5. Every route/controller function name matches.
 

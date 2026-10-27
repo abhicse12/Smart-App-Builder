@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import ThemeToggle from "@/components/ThemeToggle/ThemeToggle";
 import { API_BASE_URL } from "@/lib/api";
 
 function Navbar() {
@@ -42,48 +43,40 @@ function Navbar() {
     .toUpperCase();
 
   return (
-    <header className="h-16 border-b border-slate-800 bg-slate-950 px-6 flex items-center justify-between">
-      
+    <header className="glass float-in relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 rounded-2xl px-3 sm:px-4">
       {/* Left */}
-      <div className="relative w-80">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          size={18}
-        />
+      <div className="relative w-full max-w-md">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
 
         <Input
           placeholder="Search projects..."
-          className="pl-10 bg-slate-900 border-slate-700 text-white"
+          className="h-9 rounded-xl pl-9 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5"
         />
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-3 sm:gap-4">
+        <ThemeToggle />
 
-        <button className="relative p-2 rounded-lg hover:bg-slate-800 transition">
-          <Bell className="text-slate-300" size={20} />
-
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
-        </button>
+        <div className="h-6 w-px bg-border" />
 
         <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>
+          <Avatar className="ring-2 ring-white/70 dark:ring-white/10">
+            <AvatarFallback className="btn-glow text-xs font-semibold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>
 
-          <div>
-            <h3 className="text-sm font-semibold text-white">
+          <div className="hidden leading-tight sm:block">
+            <h3 className="text-sm font-semibold text-foreground">
               {userName}
             </h3>
 
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Developer
             </p>
           </div>
         </div>
-
       </div>
     </header>
   );

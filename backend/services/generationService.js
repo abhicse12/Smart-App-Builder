@@ -4,12 +4,59 @@ import validateProject from "./validatorService.js";
 import fixProject from "./fixerService.js";
 import runProject from "./runnerService.js";
 import generateProjectFiles from "./fileGenerationService.js";
+import runAuthSmokeTest from "./authSmokeTest.js";
+import { extractBackendEndpoints } from "./validators/apiContractValidator.js";
+import { summarizeExports } from "./validators/moduleExportsValidator.js";
+import {
+  getBasicProject,
+  summarizeConsoleModules,
+} from "./consoleProject.js";
 
 const BATCH_SIZE = 4;
 
 const MAX_FIX_ATTEMPTS = 3;
 
 const MAX_RUNTIME_FIX_ATTEMPTS = 3;
+
+// Backend files first, so frontend batches can be given the routes the
+// backend really implements; inside the frontend, shared modules
+// (services, context, hooks, components) come before the pages that
+// import them, and App/main last. Order within each group is kept.
+const FRONTEND_ORDER = [
+  /\/(services|api|lib|utils|config)\//,
+  /\/(context|contexts|store|hooks)\//,
+  /\/components\//,
+  /\/pages\//,
+];
+
+const fileOrder = (filePath = "") => {
+  const normalized = String(filePath).replace(/\\/g, "/");
+
+  if (normalized.startsWith("backend/")) return 0;
+
+  if (normalized.startsWith("frontend/")) {
+    if (/\/(App|main)\.(jsx?|tsx?)$/.test(normalized)) return 6;
+
+    const group = FRONTEND_ORDER.findIndex((pattern) =>
+      pattern.test(normalized)
+    );
+
+    // Config files (package.json, vite.config.js, index.css) first
+    return group === -1 ? 1 : 2 + group;
+  }
+
+  return 7;
+};
+
+const orderFilesForGeneration = (files = []) =>
+  files
+    .map((file, index) => ({ file, index }))
+    .sort(
+      (a, b) =>
+        fileOrder(a.file.path) - fileOrder(b.file.path) ||
+        a.index - b.index
+    )
+    .map(({ file }) => file);
 
 /* =========================================================
    MERGE FIXED FILES
@@ -78,6 +125,24 @@ const generateApp = async (
     architecture.files.length
   );
 
+  architecture.files = orderFilesForGeneration(
+    architecture.files || []
+  );
+
+  // Basic Python / Java project (console or built-in web server), or null
+  const basicProject = getBasicProject(techStack);
+
+  // Basic projects have no JSON API contract, even if the model listed one
+  const apiContract =
+    !basicProject && Array.isArray(architecture.apiContract)
+      ? architecture.apiContract
+      : [];
+
+  console.log(
+    "API contract endpoints:",
+    apiContract.length
+  );
+
   const generatedFiles = [];
 
   /* =======================================================
@@ -127,6 +192,19 @@ const generateApp = async (
 
           allFiles:
             architecture.files,
+
+          apiContract,
+
+          // Routes from backend files generated in earlier batches
+          implementedEndpoints:
+            extractBackendEndpoints(generatedFiles).endpoints,
+
+          // Exports of files generated in earlier batches
+          generatedModules: basicProject
+            ? summarizeConsoleModules(generatedFiles, basicProject.language)
+            : summarizeExports(generatedFiles),
+
+          basicProject,
         });
 
       if (
@@ -445,6 +523,33 @@ const generateApp = async (
 
         throw new Error(
           "Docker runtime validation failed"
+        );
+      }
+
+      // The app starts; now check that signup/login really work
+      const authSmokeTest =
+        await runAuthSmokeTest({
+          files: generatedProject.files,
+          previewUrl:
+            runtimeResult.frontend?.previewUrl,
+        });
+
+      runtimeValidation.authSmokeTest =
+        authSmokeTest;
+
+      if (authSmokeTest.skipped) {
+        console.log(
+          "Auth smoke test skipped:",
+          authSmokeTest.reason
+        );
+      } else if (!authSmokeTest.success) {
+        throw new Error(
+          `Authentication smoke test failed: ${authSmokeTest.error}`
+        );
+      } else {
+        console.log(
+          "✅ Auth smoke test passed:",
+          authSmokeTest.steps.join(", ")
         );
       }
 

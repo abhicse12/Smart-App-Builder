@@ -1,11 +1,33 @@
 import generateWithAI from "./aiService.js";
 import retrieveRelevantKnowledge from "./retrievalService.js";
 import loadArchitectureRules from "./architectureRulesService.js";
+import {
+  buildConsoleArchitectPrompt,
+  getBasicProject,
+} from "./consoleProject.js";
+import {
+  API_CONVENTIONS,
+  usesApiConventions,
+} from "./generationContract.js";
 
 const createProjectArchitecture = async (
   prompt,
   techStack = []
 ) => {
+  // Python / Java without frameworks: a console program, or HTML pages
+  // served by the language's built-in HTTP server
+  const basicProject = getBasicProject(techStack);
+
+  if (basicProject) {
+    console.log(
+      `Basic ${basicProject.language} ${basicProject.web ? "web" : "console"} project: using the basic project architect`
+    );
+
+    return generateWithAI(
+      buildConsoleArchitectPrompt(prompt, basicProject)
+    );
+  }
+
   // ==================================================
   // SELECTED TECHNOLOGY STACK
   // ==================================================
@@ -16,6 +38,37 @@ const createProjectArchitecture = async (
       : "Not specified";
    const architectureRules =
   await loadArchitectureRules(techStack);
+
+  // Express + Vite projects get the shared API contract rules
+  const apiContractRules = usesApiConventions(techStack)
+    ? `${API_CONVENTIONS}
+
+==================================================
+API CONTRACT (REQUIRED IN YOUR OUTPUT)
+==================================================
+
+For every project with a backend, list EVERY backend endpoint the
+application needs in "apiContract". The Coder Agent generates the
+backend and frontend in separate batches and uses this list as the
+single source of truth, so it must be complete and exact:
+
+- method:      GET, POST, PUT, PATCH or DELETE
+- path:        full path starting with /api (use :id for parameters)
+- auth:        true if the endpoint requires the Bearer token
+- body:        request body fields, e.g. { "email": "string" } (or null)
+- response:    the JSON response shape, e.g. { "tasks": "Task[]" }
+- description: what the endpoint does
+
+Include the authentication endpoints from the conventions when the
+app has login. Every frontend feature (list, create, edit, delete,
+search, etc.) must have its endpoint here, and every endpoint must
+be used by the frontend.
+
+Also include frontend/src/services/api.js (the axios client) and,
+when the app has login, backend/config/jwt.js (the single JWT secret)
+and frontend/src/context/AuthContext.jsx in the "files" plan.
+`
+    : "";
   // ==================================================
   // RAG RETRIEVAL
   // ==================================================
@@ -378,6 +431,8 @@ Signup UI
 → Protected Application
 → Logout
 
+${apiContractRules}
+
 ==================================================
 YOUR ROLE
 ==================================================
@@ -403,8 +458,20 @@ Use exactly this structure:
       "path": "string",
       "purpose": "string"
     }
+  ],
+  "apiContract": [
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "auth": false,
+      "body": { "email": "string", "password": "string" },
+      "response": { "token": "string", "user": "User" },
+      "description": "string"
+    }
   ]
 }
+
+"apiContract" is [] for projects without a backend.
 
 
 Return ONLY valid JSON.

@@ -1,4 +1,12 @@
 import generateWithAI from "./aiService.js";
+import {
+  API_CONVENTIONS,
+  usesApiConventions,
+} from "./generationContract.js";
+import {
+  consoleFixerRules,
+  detectBasicProjectFromFiles,
+} from "./consoleProject.js";
 
 const fixProject = async ({
   projectName,
@@ -7,6 +15,26 @@ const fixProject = async ({
   errors,
   files,
 }) => {
+  // Frontend/backend mismatches are fixed toward the shared conventions,
+  // so the fixer does not pick a side at random
+  const conventionsSection = usesApiConventions(techStack)
+    ? `
+${API_CONVENTIONS}
+
+When an error reports a frontend/backend mismatch (paths, request
+fields, token transport, ids, auth state), change the side that breaks
+these conventions. If both sides break them, update both so they meet
+the conventions.
+`
+    : "";
+
+  // Basic Python / Java programs: keep their layout and sandbox rules
+  const basicProject = detectBasicProjectFromFiles(files);
+
+  const consoleSection = basicProject
+    ? consoleFixerRules(basicProject)
+    : "";
+
   const fixerPrompt = `
 You are the Fixer Agent of an AI application builder.
 
@@ -43,6 +71,9 @@ ${errors
     return `${index + 1}. ${formattedError}`;
   })
   .join("\n")}
+
+${conventionsSection}
+${consoleSection}
 
 ==================================================
 CURRENT PROJECT FILES

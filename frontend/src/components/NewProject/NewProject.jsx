@@ -4,6 +4,11 @@ import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/api";
+import {
+  getBasicWebLanguage,
+  getConsoleLanguage,
+  languageLabel,
+} from "@/lib/projectType";
 
 function NewProject({ onClose, onProjectCreated }) {
   const navigate = useNavigate();
@@ -27,6 +32,7 @@ function NewProject({ onClose, onProjectCreated }) {
     "MySQL",
     "PostgreSQL",
     "Python",
+    "Java",
   ];
 
   const handleNameChange = (e) => {
@@ -99,17 +105,23 @@ function NewProject({ onClose, onProjectCreated }) {
 };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/20 px-4 backdrop-blur-md animate-in fade-in duration-200 dark:bg-black/50"
+      onClick={onClose}
+    >
+      <div
+        className="glass-strong pop-in max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-3xl p-6 sm:p-7"
+        onClick={(e) => e.stopPropagation()}
+      >
 
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-5 flex items-start justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               Create New Project
             </h2>
 
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Set up your project before generating the application.
             </p>
           </div>
@@ -117,17 +129,18 @@ function NewProject({ onClose, onProjectCreated }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            aria-label="Close"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <X size={22} />
+            <X className="size-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
 
           {/* Project Name */}
           <div>
-            <label className="text-sm font-medium text-slate-300">
+            <label className="text-sm font-medium text-foreground">
               Project Name
             </label>
 
@@ -137,21 +150,22 @@ function NewProject({ onClose, onProjectCreated }) {
               onChange={handleNameChange}
               placeholder="e.g. AI Resume Builder"
               required
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 p-3 text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500"
+              autoFocus
+              className="mt-1.5 h-10 w-full rounded-xl border px-3 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-3 focus:ring-ring/30"
             />
           </div>
 
           {/* Tech Stack */}
           <div>
-            <label className="text-sm font-medium text-slate-300">
+            <label className="text-sm font-medium text-foreground">
               Technology Stack
             </label>
 
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Select the technologies you want to use.
             </p>
 
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {techOptions.map((tech) => {
                 const selected =
                   formData.techStack.includes(tech);
@@ -161,18 +175,18 @@ function NewProject({ onClose, onProjectCreated }) {
                     key={tech}
                     type="button"
                     onClick={() => handleTechToggle(tech)}
-                    className={`rounded-lg border px-3 py-2.5 text-left text-sm transition ${
+                    className={`rounded-xl border px-3 py-2 text-left text-sm transition-all ${
                       selected
-                        ? "border-blue-500 bg-blue-500/10 text-blue-400"
-                        : "border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600 hover:text-white"
+                        ? "border-primary bg-primary/10 font-medium text-primary shadow-md shadow-primary/15"
+                        : "border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5 text-muted-foreground hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground"
                     }`}
                   >
                     <div className="flex items-center gap-2">
                       <span
-                        className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
+                        className={`flex size-4 items-center justify-center rounded border text-[10px] ${
                           selected
-                            ? "border-blue-500 bg-blue-500 text-white"
-                            : "border-slate-600"
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input"
                         }`}
                       >
                         {selected ? "✓" : ""}
@@ -185,18 +199,40 @@ function NewProject({ onClose, onProjectCreated }) {
               })}
             </div>
 
+            {/* Python-only / Java-only stacks build a terminal program */}
+            {getConsoleLanguage(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                {languageLabel(getConsoleLanguage(formData.techStack))} only:
+                a basic console program (runs in the terminal, with tests).
+                Add web technologies like React or HTML for a web app.
+              </p>
+            )}
+
+            {/* Python / Java + HTML/CSS: built-in server, logic in that language */}
+            {getBasicWebLanguage(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                {languageLabel(getBasicWebLanguage(formData.techStack))} +{" "}
+                {formData.techStack
+                  .filter((tech) => !["Python", "Java"].includes(tech))
+                  .join(" + ")}
+                : web pages served by {languageLabel(getBasicWebLanguage(formData.techStack))}
+                {"'"}s built-in server (no frameworks), with the program logic
+                in {languageLabel(getBasicWebLanguage(formData.techStack))}.
+              </p>
+            )}
+
             {/* Selected Technologies */}
             {formData.techStack.length > 0 && (
               <div className="mt-4">
-                <p className="mb-2 text-xs text-slate-500">
+                <p className="mb-2 text-xs text-muted-foreground">
                   Selected:
                 </p>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {formData.techStack.map((tech) => (
                     <span
                       key={tech}
-                      className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs text-blue-400"
+                      className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary"
                     >
                       {tech}
                     </span>
@@ -207,16 +243,17 @@ function NewProject({ onClose, onProjectCreated }) {
           </div>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
+          <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
             <Button
               type="button"
               variant="outline"
+              className="h-9 rounded-xl px-4"
               onClick={onClose}
             >
               Cancel
             </Button>
 
-            <Button type="submit">
+            <Button type="submit" className="h-9 rounded-xl px-5">
               Create Project
             </Button>
           </div>
@@ -227,4 +264,4 @@ function NewProject({ onClose, onProjectCreated }) {
   );
 }
 
-export default NewProject;
+export default NewProject;

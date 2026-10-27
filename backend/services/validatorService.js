@@ -2,6 +2,11 @@ import path from "path";
 import validateStructure from "./validators/structureValidator.js";
 import validateRuntime from "./validators/runtimeValidator.js";
 import validateFeatureCompleteness from "./validators/featureValidator.js";
+import validateApiContract from "./validators/apiContractValidator.js";
+import validateModuleExports from "./validators/moduleExportsValidator.js";
+import validateDataFiles from "./validators/dataFilesValidator.js";
+import validateConsoleProject from "./validators/consoleValidator.js";
+import { detectBasicProjectFromFiles } from "./consoleProject.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -26,6 +31,26 @@ const validateProject = (project) => {
     warnings,
   });
 
+  // Basic Python / Java projects (console or built-in web server): none
+  // of the React/Express checks apply
+  const basicProject = detectBasicProjectFromFiles(files);
+
+  if (basicProject) {
+    validateConsoleProject({
+      files,
+      project: basicProject,
+      errors,
+    });
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      totalFiles: files.length,
+      projectType: `${basicProject.language}${basicProject.web ? "-web" : ""}`,
+    };
+  }
+
   validateFeatureCompleteness({
     files,
     errors,
@@ -36,6 +61,25 @@ const validateProject = (project) => {
     files,
     errors,
     warnings,
+  });
+
+  // Frontend calls ↔ mounted backend routes, and auth wiring
+  validateApiContract({
+    files,
+    errors,
+    warnings,
+  });
+
+  // Imported names must be exported by the imported local file
+  validateModuleExports({
+    files,
+    errors,
+  });
+
+  // backend/data/*.json valid, and read-only catalogs seeded
+  validateDataFiles({
+    files,
+    errors,
   });
 
   const normalizePath = (filePath) =>
@@ -737,73 +781,7 @@ const validateProject = (project) => {
   // 13. API route consistency
   // =====================================
 
-  const backendRoutePrefixes = [];
-
-  for (const file of files) {
-    const normalizedPath =
-      normalizePath(file.path);
-
-    if (
-      !normalizedPath.includes(
-        "/routes/"
-      )
-    ) {
-      continue;
-    }
-
-    const routeMatches = [
-      ...file.content.matchAll(
-        /router\.(get|post|put|patch|delete)\s*\(\s*["']([^"']+)["']/g
-      ),
-    ];
-
-    for (const match of routeMatches) {
-      backendRoutePrefixes.push({
-        method:
-          match[1].toUpperCase(),
-        path: match[2],
-        file: normalizedPath,
-      });
-    }
-  }
-
-  const frontendApiCalls = [];
-
-  for (const file of files) {
-    const normalizedPath =
-      normalizePath(file.path);
-
-    if (
-      !normalizedPath.startsWith(
-        "frontend/"
-      )
-    ) {
-      continue;
-    }
-
-    const apiRegex =
-      /(?:api|axios)\.(get|post|put|patch|delete)\s*\(\s*["'`]([^"'`]+)["'`]/g;
-
-    for (const match of file.content.matchAll(
-      apiRegex
-    )) {
-      frontendApiCalls.push({
-        method:
-          match[1].toUpperCase(),
-        path: match[2],
-        file: normalizedPath,
-      });
-    }
-  }
-
-  if (
-    frontendApiCalls.length > 0 &&
-    backendRoutePrefixes.length === 0
-  ) {
-    warnings.push(
-      "Frontend contains API calls but no backend routes were detected."
-    );
-  }
+  // Checked by validators/apiContractValidator.js
 
   // =====================================
   // 14. Auth dependency validation

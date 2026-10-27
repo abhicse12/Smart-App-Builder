@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { WandSparkles } from "lucide-react";
+import { Loader2, WandSparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { API_BASE_URL } from "@/lib/api";
 
-function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
+function PromptBox({
+  setIsGenerating,
+  setAgentStep,
+  mode = "generate",
+  consoleLanguage = null,
+}) {
   const { id } = useParams();
 
   const [prompt, setPrompt] = useState("");
@@ -134,28 +139,25 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 };
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-lg">
+    <div className="glass float-in flex h-full flex-col rounded-2xl p-5 sm:p-6">
 
       {/* Header */}
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-3 flex items-center gap-3">
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-
-          <WandSparkles
-            className="text-blue-500"
-            size={22}
-          />
-
+        <div className="btn-glow flex size-10 items-center justify-center rounded-xl">
+          <WandSparkles className="size-5 text-white" />
         </div>
 
         <div>
 
-          <h2 className="text-xl font-semibold text-white">
-            Application Requirements
+          <h2 className="text-base font-semibold text-foreground">
+            {mode === "modify"
+              ? "Modify Application"
+              : "Application Requirements"}
           </h2>
 
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-muted-foreground">
             Describe what you want your application to do.
           </p>
 
@@ -165,7 +167,7 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
 
       {/* Description */}
 
-      <p className="mb-4 text-sm leading-6 text-slate-400">
+      <p className="mb-4 text-sm leading-6 text-muted-foreground">
         Explain the application's features, users,
         pages, functionality, authentication,
         database requirements, and any other
@@ -183,7 +185,17 @@ function PromptBox({ setIsGenerating, setAgentStep,mode = "generate", }) {
           setPrompt(e.target.value)
         }
         disabled={loading}
-        placeholder={`Example:
+        placeholder={consoleLanguage ? `Example:
+
+Create a student grade management program.
+
+Requirements:
+- Add students with a name and roll number
+- Record marks for 5 subjects
+- Calculate total, average and grade (A to F)
+- Show a ranked report of all students
+- Search for a student by roll number
+- Save and load the data from a file` : `Example:
 
 Create a library management application.
 
@@ -194,21 +206,29 @@ Requirements:
 - Search books by title and filter by genre or status
 - Provide a dashboard with total, available and borrowed books
 - Create a clean and responsive UI`}
-        className="resize-none border-slate-700 bg-slate-950 text-white placeholder:text-slate-600"
+        className="min-h-64 flex-1 resize-none rounded-xl px-4 py-3 text-sm leading-6 border-indigo-950/10 bg-white/65 dark:border-white/10 dark:bg-white/5"
       />
 
       {/* Generate Button */}
 
-      <div className="mt-5 flex justify-end">
+      <div className="mt-4 flex justify-end">
 
         <Button
-          className="px-8"
+          className="h-10 gap-2 rounded-xl px-6 transition-transform hover:scale-[1.03] active:scale-[0.98]"
           onClick={handleGenerate}
           disabled={loading}
         >
-          {loading
-            ? "⚙️ Generating Application..."
-            : "✨ Generate Application"}
+          {loading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Generating Application...
+            </>
+          ) : (
+            <>
+              <WandSparkles className="size-4" />
+              Generate Application
+            </>
+          )}
         </Button>
 
       </div>
@@ -217,4 +237,4 @@ Requirements:
   );
 }
 
-export default PromptBox;
+export default PromptBox;

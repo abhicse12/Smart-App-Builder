@@ -275,6 +275,10 @@ const waitForContainerHealth = async (
         "Internal server error",
         "Pre-transform error",
         "Failed to load url",
+        // vite build (Rollup) errors
+        "is not exported by",
+        "error during build",
+        "Could not resolve",
       ];
 
       const detectedError =
@@ -441,12 +445,391 @@ const detectProjectType = (projectRoot) => {
     return "react";
   }
 
+  // Basic Python / Java web apps (built-in HTTP server + templates/static).
+  // Checked before static sites so a leftover root index.html does not
+  // hide the server.
+  const hasPages =
+    fs.existsSync(path.join(projectRoot, "templates")) ||
+    fs.existsSync(path.join(projectRoot, "static"));
+
+  if (fs.existsSync(path.join(projectRoot, "server.py"))) {
+    return "python-web";
+  }
+
+  if (
+    hasPages &&
+    fs.existsSync(path.join(projectRoot, "src", "Main.java"))
+  ) {
+    return "java-web";
+  }
+
   // Static HTML/CSS/JS
   if (hasIndexHtml) {
     return "static";
   }
 
+  // Basic console programs
+  if (fs.existsSync(path.join(projectRoot, "main.py"))) {
+    return "python";
+  }
+
+  if (fs.existsSync(path.join(projectRoot, "src", "Main.java"))) {
+    return "java";
+  }
+
   return "unknown";
+};
+
+// =====================================
+// Console projects (Python / Java)
+// =====================================
+
+// Like runCommand, but a non-zero exit code is a result, not an error
+const runToCompletion = (command, args, timeoutMs) =>
+  new Promise((resolve) => {
+    execFile(
+      command,
+      args,
+      {
+        windowsHide: true,
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: timeoutMs,
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          exitCode: error ? (typeof error.code === "number" ? error.code : 1) : 0,
+          output: [stdout, stderr]
+            .map((text) => String(text || "").trimEnd())
+            .filter(Boolean)
+            .join("\n"),
+          killed: Boolean(error?.killed),
+        });
+      }
+    );
+  });
+
+const CONSOLE_RUNTIMES = {
+  python: {
+    image: "python:3.12-slim",
+    label: "Python program",
+    memory: "256m",
+    pids: "64",
+    env: ["PYTHONDONTWRITEBYTECODE=1", "PYTHONUNBUFFERED=1"],
+    program: "timeout 15 python main.py < /dev/null",
+    // Tests are optional at run time (the validator requires them)
+    tests:
+      "if [ -d tests ]; then timeout 30 python -m unittest discover -s tests -v < /dev/null; else echo 'No tests folder'; fi",
+  },
+  java: {
+    image: "eclipse-temurin:21-jdk",
+    label: "Java program",
+    memory: "512m",
+    pids: "256",
+    env: [],
+    compile: "mkdir -p /tmp/out && javac -d /tmp/out $(find src -name '*.java')",
+    program: "timeout 15 java -cp /tmp/out Main < /dev/null",
+    tests:
+      "if [ -f src/TestRunner.java ]; then timeout 30 java -ea -cp /tmp/out TestRunner < /dev/null; else echo 'No TestRunner'; fi",
+  },
+};
+
+// Runs the test step of a console/web project in a one-shot container
+const runTestsOnce = (runtime, projectRoot, containerName) =>
+  runToCompletion(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "--name",
+      `${containerName}-tests`,
+      "--network",
+      "none",
+      "--memory",
+      runtime.memory,
+      "--cpus",
+      "1",
+      "--pids-limit",
+      runtime.pids,
+      "--security-opt",
+      "no-new-privileges",
+      "--cap-drop=ALL",
+      "--read-only",
+      "--tmpfs",
+      "/tmp:exec",
+      ...runtime.env.flatMap((variable) => ["-e", variable]),
+      "-v",
+      `${projectRoot}:/app:ro`,
+      "-w",
+      "/app",
+      runtime.image,
+      "sh",
+      "-c",
+      runtime.compile ? `${runtime.compile} && ${runtime.tests}` : runtime.tests,
+    ],
+    120000
+  );
+
+const describeExit = (result) =>
+  result.exitCode === 124 || result.killed
+    ? "timed out (infinite loop, or waiting for keyboard input although stdin is not a terminal)"
+    : `exited with code ${result.exitCode}`;
+
+// Python / Java web app on the language's built-in HTTP server:
+// tests first, then the server in a long-running container
+const WEB_SERVER_COMMANDS = {
+  python: "python server.py",
+  java: "mkdir -p /tmp/out && javac -d /tmp/out $(find src -name '*.java') && java -cp /tmp/out Main",
+};
+
+const runBasicWebProject = async ({
+  projectId,
+  projectRoot,
+  projectType,
+  containerName,
+}) => {
+  const language = projectType === "python-web" ? "python" : "java";
+  const runtime = CONSOLE_RUNTIMES[language];
+  const label = `${language === "python" ? "Python" : "Java"} web server`;
+  const port = 8000;
+
+  // 1. Tests (logic) in a one-shot container
+  const tests = await runTestsOnce(runtime, projectRoot, containerName);
+
+  console.log(`${label} tests ${describeExit(tests)}`);
+
+  if (tests.exitCode !== 0) {
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: `${label} tests`,
+        healthError: `Tests ${describeExit(tests)}; fix the program logic or the failing test`,
+        dockerLogs: tests.output.slice(-6000),
+      })
+    );
+  }
+
+  // 2. The server
+  await runCommand("docker", [
+    "run",
+    "-d",
+    "--name",
+    containerName,
+    "--memory",
+    runtime.memory,
+    "--cpus",
+    "1",
+    "--pids-limit",
+    runtime.pids,
+    "--security-opt",
+    "no-new-privileges",
+    "--cap-drop=ALL",
+    "--read-only",
+    "--tmpfs",
+    "/tmp:exec",
+    ...runtime.env.flatMap((variable) => ["-e", variable]),
+    "-e",
+    `PORT=${port}`,
+    "-v",
+    `${projectRoot}:/app:ro`,
+    "-w",
+    "/app",
+    "-p",
+    `127.0.0.1::${port}`,
+    runtime.image,
+    "sh",
+    "-c",
+    WEB_SERVER_COMMANDS[language],
+  ]);
+
+  const hostPort = await getDockerHostPort(containerName, port);
+  const baseUrl = `http://127.0.0.1:${hostPort}`;
+
+  console.log(`${label} mapped to host port: ${hostPort}`);
+
+  const fail = async (healthError) => {
+    const logs = await getDockerLogs(containerName);
+
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: label,
+        healthError,
+        dockerLogs: logs.logs,
+      })
+    );
+  };
+
+  // Wait for /health; stop early if the container has exited
+  let healthy = false;
+  let lastError = "not started";
+
+  for (let attempt = 1; attempt <= 45 && !healthy; attempt++) {
+    try {
+      const response = await fetch(`${baseUrl}/health`, {
+        signal: AbortSignal.timeout(3000),
+      });
+
+      healthy = response.ok;
+      lastError = `GET /health returned HTTP ${response.status}`;
+    } catch (error) {
+      lastError = error.cause?.code || error.message;
+    }
+
+    if (healthy) break;
+
+    const state = await runCommand("docker", [
+      "inspect",
+      "-f",
+      "{{.State.Running}}",
+      containerName,
+    ]).catch(() => ({ stdout: "false" }));
+
+    if (state.stdout.trim() !== "true") {
+      await fail(`${label} exited before it answered GET /health (last error: ${lastError})`);
+    }
+
+    console.log(`${label} not ready yet (${lastError})`);
+    await sleep(2000);
+  }
+
+  if (!healthy) {
+    await fail(`${label} never answered GET /health (last error: ${lastError})`);
+  }
+
+  // The page itself must render with its form
+  try {
+    const page = await fetch(baseUrl, { signal: AbortSignal.timeout(5000) });
+    const html = await page.text();
+
+    if (!page.ok || !/<form/i.test(html)) {
+      await fail(
+        `GET / returned HTTP ${page.status}${page.ok ? " without a <form>" : ""}: ${html.slice(0, 300)}`
+      );
+    }
+  } catch (error) {
+    if (/RUNTIME_ERROR/.test(error.message)) throw error;
+    await fail(`GET / failed: ${error.message}`);
+  }
+
+  console.log(`✅ ${label} is running and its tests passed!`);
+
+  return {
+    success: true,
+    projectId,
+    containerName,
+    projectType,
+    frontend: {
+      hostPort,
+      previewUrl: baseUrl,
+      status: "running",
+    },
+    tests: {
+      passed: true,
+      output: tests.output.slice(-20000),
+    },
+    status: "running",
+  };
+};
+
+const runConsoleProject = async ({
+  projectId,
+  projectRoot,
+  projectType,
+  containerName,
+}) => {
+  const runtime = CONSOLE_RUNTIMES[projectType];
+
+  console.log(`Running ${runtime.label} in ${runtime.image}...`);
+
+  // One short-lived, locked-down container per step: no network,
+  // read-only project files, writable /tmp only
+  const dockerRun = (step, script) =>
+    runToCompletion(
+      "docker",
+      [
+        "run",
+        "--rm",
+        "--name",
+        `${containerName}-${step}`,
+        "--network",
+        "none",
+        "--memory",
+        runtime.memory,
+        "--cpus",
+        "1",
+        "--pids-limit",
+        runtime.pids,
+        "--security-opt",
+        "no-new-privileges",
+        "--cap-drop=ALL",
+        "--read-only",
+        "--tmpfs",
+        "/tmp:exec",
+        ...runtime.env.flatMap((variable) => ["-e", variable]),
+        "-v",
+        `${projectRoot}:/app:ro`,
+        "-w",
+        "/app",
+        runtime.image,
+        "sh",
+        "-c",
+        script,
+      ],
+      120000
+    );
+
+  const withCompile = (script) =>
+    runtime.compile ? `${runtime.compile} && ${script}` : script;
+
+  const program = await dockerRun("run", withCompile(runtime.program));
+
+  console.log(
+    `${runtime.label} ${describeExit(program)}`
+  );
+
+  if (program.exitCode !== 0) {
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: runtime.label,
+        healthError: `${runtime.label} ${describeExit(program)} when run without a keyboard (stdin is /dev/null)`,
+        dockerLogs: program.output.slice(-6000),
+      })
+    );
+  }
+
+  const tests = await dockerRun("tests", withCompile(runtime.tests));
+
+  console.log(`${runtime.label} tests ${describeExit(tests)}`);
+
+  if (tests.exitCode !== 0) {
+    throw new Error(
+      JSON.stringify({
+        type: "RUNTIME_ERROR",
+        service: `${runtime.label} tests`,
+        healthError: `Tests ${describeExit(tests)}; fix the program logic or the failing test`,
+        dockerLogs: tests.output.slice(-6000),
+      })
+    );
+  }
+
+  console.log(`✅ ${runtime.label} and its tests ran successfully!`);
+
+  return {
+    success: true,
+    projectId,
+    containerName,
+    projectType,
+    console: {
+      output: program.output.slice(-20000),
+      exitCode: program.exitCode,
+      tests: {
+        passed: true,
+        output: tests.output.slice(-20000),
+      },
+    },
+    status: "completed",
+  };
 };
 
 // =====================================
@@ -559,6 +942,28 @@ const runProject = async (projectId) => {
     ]);
   } catch {
     // Container does not exist
+  }
+
+  // =====================================
+  // PYTHON / JAVA CONSOLE PROJECT
+  // =====================================
+
+  if (projectType === "python-web" || projectType === "java-web") {
+    return runBasicWebProject({
+      projectId,
+      projectRoot,
+      projectType,
+      containerName,
+    });
+  }
+
+  if (projectType === "python" || projectType === "java") {
+    return runConsoleProject({
+      projectId,
+      projectRoot,
+      projectType,
+      containerName,
+    });
   }
 
   // =====================================
@@ -844,7 +1249,11 @@ const runProject = async (projectId) => {
       "sh",
       "-c",
 
-      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run dev -- --host 0.0.0.0 --port 5173",
+      // "npm run build" compiles every module first, so a broken import
+      // (e.g. a missing named export) fails here with a log the Fixer
+      // can use, instead of a blank page in the browser. The output goes
+      // to /tmp so nothing is written into the project folder.
+      "cd /app/backend && npm install && npm start & cd /app/frontend && npm install && npm run build -- --outDir /tmp/vite-build-check --emptyOutDir && npm run dev -- --host 0.0.0.0 --port 5173",
     ]);
 
     console.log(

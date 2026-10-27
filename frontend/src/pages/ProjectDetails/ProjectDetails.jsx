@@ -1,6 +1,7 @@
 import PromptBox from "@/components/PromptBox/PromptBox";
 import AgentStatus from "@/components/AgentStatus/AgentStatus";
 import GenerationProgress from "@/components/GenerationProgress/GenerationProgress";
+import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -15,8 +16,12 @@ import {
   Play,
   ExternalLink,
   Loader2,
+  Terminal,
+  FileCode2,
+  FolderOpen,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api";
+import { getConsoleLanguage, languageLabel } from "@/lib/projectType";
 
 function ProjectDetails() {
   const { id } = useParams();
@@ -39,6 +44,8 @@ function ProjectDetails() {
   const [isRunning, setIsRunning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const [runError, setRunError] = useState("");
+  // Output of a Python / Java console program run
+  const [consoleResult, setConsoleResult] = useState(null);
 
   useEffect(() => {
     const fetchProject = async () => {
@@ -113,6 +120,7 @@ function ProjectDetails() {
       setIsRunning(true);
       setRunError("");
       setPreviewUrl("");
+      setConsoleResult(null);
 
       const response = await fetch(
         `${API_BASE_URL}/api/projects/${id}/run`,
@@ -128,6 +136,15 @@ function ProjectDetails() {
         throw new Error(
           data.message || "Failed to run project"
         );
+      }
+
+      // Console programs return their output instead of a preview URL
+      if (data?.runner?.console) {
+        setConsoleResult({
+          language: data.runner.projectType,
+          ...data.runner.console,
+        });
+        return;
       }
 
       const url =
@@ -227,9 +244,12 @@ function ProjectDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center">
-        Loading project...
-      </div>
+      <DashboardLayout>
+        <div className="flex h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Loading project...
+        </div>
+      </DashboardLayout>
     );
   }
 
@@ -239,329 +259,380 @@ function ProjectDetails() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center">
-        <h2 className="text-2xl font-bold">
-          Project not found
-        </h2>
+      <DashboardLayout>
+        <div className="flex h-[60vh] flex-col items-center justify-center">
+          <h2 className="text-xl font-semibold text-foreground">
+            Project not found
+          </h2>
 
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="mt-4 text-blue-400"
-        >
-          Back to Dashboard
-        </button>
-      </div>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="mt-3 text-sm font-medium text-primary hover:underline"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </DashboardLayout>
     );
   }
 
+  const consoleLanguage = getConsoleLanguage(project.techStack);
+
+  const statusTone =
+    project.status === "validation_failed"
+      ? "bg-destructive/10 text-destructive"
+      : project.status === "generated" ||
+        project.status === "modified"
+      ? "bg-success/10 text-success"
+      : "bg-primary/10 text-primary";
+
   return (
-    <div className="min-h-screen bg-slate-950 text-white p-6">
+    <DashboardLayout>
       {/* Back button */}
 
       <button
         onClick={() => navigate("/dashboard")}
-        className="flex items-center gap-2 text-slate-400 hover:text-white mb-8"
+        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft size={18} />
+        <ArrowLeft className="size-4" />
         Back to Dashboard
       </button>
 
-      <div className="max-w-6xl mx-auto">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8">
-          {/* =========================================
-              Project Header
-          ========================================= */}
+      {/* =========================================
+          Project Header
+      ========================================= */}
 
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-4xl font-bold">
+      <div className="glass float-in relative overflow-hidden rounded-3xl p-6">
+        <div className="pointer-events-none absolute -right-20 -top-24 size-72 rounded-full bg-violet-400/15 blur-3xl dark:bg-violet-500/10" />
+
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="truncate text-2xl font-bold tracking-tight text-foreground">
                 {project.name}
               </h1>
 
-              <p className="mt-3 text-slate-400">
-                {project.description}
-              </p>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${statusTone}`}>
+                {(project.status || "active").replace(/_/g, " ")}
+              </span>
             </div>
 
-            <span className="px-3 py-1 rounded-full text-sm bg-emerald-500/10 text-emerald-400">
-              {project.status}
-            </span>
-          </div>
+            {project.description && (
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                {project.description}
+              </p>
+            )}
 
-          {/* =========================================
-              Tech Stack
-          ========================================= */}
+            {/* Tech Stack */}
 
-          {project.techStack?.length > 0 && (
-            <div className="mt-8">
-              <div className="flex items-center gap-2 mb-3">
-                <Code2 size={18} />
+            {project.techStack?.length > 0 && (
+              <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                <Code2 className="mr-1 size-4 text-muted-foreground" />
 
-                <h2 className="font-semibold">
-                  Tech Stack
-                </h2>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
                 {project.techStack.map((tech) => (
                   <span
                     key={tech}
-                    className="px-3 py-2 rounded-lg bg-slate-800 text-slate-300"
+                    className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:text-secondary-foreground"
                   >
                     {tech}
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* =========================================
-              Created Date
-          ========================================= */}
+          {/* Created Date */}
 
-          <div className="mt-8 flex items-center gap-2 text-slate-500 text-sm">
-            <Calendar size={16} />
+          <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="size-3.5" />
 
             Created{" "}
             {new Date(
               project.createdAt
             ).toLocaleDateString()}
           </div>
+        </div>
+      </div>
 
-          {/* =========================================
-              AI Builder
-          ========================================= */}
+      {/* =========================================
+          AI Builder + Run Project
+      ========================================= */}
 
-          <div className="mt-8">
-            <PromptBox
-              setIsGenerating={setIsGenerating}
-              setAgentStep={setAgentStep}
-              mode={files.length > 0 ? "modify" : "generate"}
-            />
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <PromptBox
+            setIsGenerating={setIsGenerating}
+            setAgentStep={setAgentStep}
+            mode={files.length > 0 ? "modify" : "generate"}
+            consoleLanguage={consoleLanguage}
+          />
+        </div>
 
-            <AgentStatus
-              isGenerating={isGenerating}
-              agentStep={agentStep}
-            />
+        <div className="space-y-6">
+          {/* Run Project */}
 
-            <GenerationProgress
-              agentStep={agentStep}
-            />
-          </div>
+          <div className="glass float-in rounded-2xl p-5" style={{ "--d": "60ms" }}>
+            <h2 className="text-sm font-semibold text-foreground">
+              {consoleLanguage ? "Run Program" : "Run Project"}
+            </h2>
 
-          {/* =========================================
-              Run Project Section
-          ========================================= */}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {consoleLanguage
+                ? `Run the ${languageLabel(consoleLanguage)} program and its tests inside the Docker sandbox.`
+                : "Start the generated application inside the Docker sandbox."}
+            </p>
 
-          <div className="mt-10 rounded-xl border border-slate-800 bg-slate-950 p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold">
-                  Run Project
-                </h2>
-
-                <p className="text-sm text-slate-400 mt-1">
-                  Start the generated application inside
-                  the Docker sandbox.
-                </p>
-              </div>
-
-              <button
-                onClick={handleRunProject}
-                disabled={isRunning}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-              >
-                {isRunning ? (
-                  <>
-                    <Loader2
-                      size={18}
-                      className="animate-spin"
-                    />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Play size={18} />
-                    Run Project
-                  </>
-                )}
-              </button>
-            </div>
+            <button
+              onClick={handleRunProject}
+              disabled={isRunning}
+              className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-linear-to-r from-emerald-500 to-teal-500 text-sm font-medium text-white shadow-lg shadow-emerald-500/30 transition hover:scale-[1.02] hover:shadow-emerald-500/40 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <Play className="size-4" />
+                  {consoleLanguage ? "Run Program" : "Run Project"}
+                </>
+              )}
+            </button>
 
             {/* Run Error */}
 
             {runError && (
-              <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
                 {runError}
               </div>
             )}
           </div>
 
-          {/* =========================================
-              Live Preview
-          ========================================= */}
+          <AgentStatus
+            isGenerating={isGenerating}
+            agentStep={agentStep}
+          />
 
-          {previewUrl && (
-            <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
-              {/* Preview Header */}
-
-              <div className="border-b border-slate-800 px-5 py-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold">
-                    Live Preview
-                  </h2>
-
-                  <p className="text-xs text-slate-500 mt-1">
-                    Generated application running in
-                    Docker
-                  </p>
-                </div>
-
-                <a
-                  href={previewUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm transition"
-                >
-                  <ExternalLink size={16} />
-                  Open in New Tab
-                </a>
-              </div>
-
-              {/* Preview URL */}
-
-              <div className="px-5 py-3 border-b border-slate-800">
-                <span className="text-xs text-slate-500">
-                  Preview URL
-                </span>
-
-                <p className="text-sm text-emerald-400 mt-1 break-all">
-                  {previewUrl}
-                </p>
-              </div>
-
-              {/* Iframe */}
-
-              <div className="bg-white">
-                <iframe
-                  src={previewUrl}
-                  title="Generated Application Preview"
-                  className="w-full h-[700px] border-0"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* =========================================
-              Generated Project
-          ========================================= */}
-
-          <div className="mt-10">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-2xl font-bold">
-                Generated Project
-              </h2>
-
-              <button
-                onClick={handleDownload}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
-              >
-                <Download size={18} />
-                Download ZIP
-              </button>
-            </div>
-
-            {filesLoading ? (
-              <p className="text-slate-400">
-                Loading files...
-              </p>
-            ) : files.length === 0 ? (
-              <p className="text-slate-400">
-                No generated files yet.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                {/* =====================================
-                    File Explorer
-                ===================================== */}
-
-                <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-                  <h3 className="font-semibold mb-4">
-                    Files
-                  </h3>
-
-                  <div className="space-y-2">
-                    {files.map((file) => (
-                      <button
-                        key={file.path}
-                        onClick={() =>
-                          setSelectedFile(file)
-                        }
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
-                          selectedFile?.path ===
-                          file.path
-                            ? "bg-blue-600/20 text-blue-400"
-                            : "text-slate-400 hover:bg-slate-800 hover:text-white"
-                        }`}
-                      >
-                        <Code2
-                          size={14}
-                          className="inline mr-2"
-                        />
-
-                        {file.path}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* =====================================
-                    Code Viewer
-                ===================================== */}
-
-                <div className="md:col-span-2 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
-                  <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-                    <span className="text-sm text-slate-400">
-                      {selectedFile?.path ||
-                        "Select a file"}
-                    </span>
-
-                    <button
-                      onClick={handleCopy}
-                      disabled={!selectedFile}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-sm text-white transition disabled:opacity-50"
-                    >
-                      {copied ? (
-                        <>
-                          <Check
-                            size={16}
-                            className="text-green-400"
-                          />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={16} />
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <pre className="p-5 overflow-auto max-h-[600px] text-sm text-slate-300 whitespace-pre-wrap break-words">
-                    <code>
-                      {selectedFile?.content ||
-                        "No content"}
-                    </code>
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
+          <GenerationProgress
+            agentStep={agentStep}
+          />
         </div>
       </div>
-    </div>
+
+      {/* =========================================
+          Program Output (Python / Java console)
+      ========================================= */}
+
+      {consoleResult && (
+        <div className="glass float-in mt-6 overflow-hidden rounded-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+            <div className="flex items-center gap-3">
+              <div className="btn-glow flex size-9 items-center justify-center rounded-xl">
+                <Terminal className="size-4 text-white" />
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">
+                  Program Output
+                </h2>
+
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {languageLabel(consoleResult.language)} program run without
+                  keyboard input, so it shows its demo mode. Download the ZIP
+                  to use it interactively.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs font-medium">
+              <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-success">
+                exit code {consoleResult.exitCode}
+              </span>
+
+              {consoleResult.tests?.passed && (
+                <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-success">
+                  tests passed
+                </span>
+              )}
+            </div>
+          </div>
+
+          <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-100">
+            {consoleResult.output || "(the program printed nothing)"}
+          </pre>
+
+          {consoleResult.tests?.output && (
+            <details className="border-t border-border">
+              <summary className="cursor-pointer px-5 py-3 text-sm font-medium text-foreground hover:bg-white/40 dark:hover:bg-white/5">
+                Test results
+              </summary>
+
+              <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap break-words bg-slate-950 p-5 font-mono text-[13px] leading-6 text-slate-300">
+                {consoleResult.tests.output}
+              </pre>
+            </details>
+          )}
+        </div>
+      )}
+
+      {/* =========================================
+          Live Preview
+      ========================================= */}
+
+      {previewUrl && (
+        <div className="glass float-in mt-6 overflow-hidden rounded-2xl">
+          {/* Preview Header */}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-foreground">
+                Live Preview
+              </h2>
+
+              <p className="mt-0.5 truncate text-xs text-success">
+                {previewUrl}
+              </p>
+            </div>
+
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="glass-inset flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <ExternalLink className="size-3.5" />
+              Open in New Tab
+            </a>
+          </div>
+
+          {/* Iframe */}
+
+          <div className="bg-white">
+            <iframe
+              src={previewUrl}
+              title="Generated Application Preview"
+              className="h-[75vh] w-full border-0"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* =========================================
+          Generated Project
+      ========================================= */}
+
+      <div className="mt-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+            Generated Project
+          </h2>
+
+          <button
+            onClick={handleDownload}
+            className="btn-glow flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-medium transition-transform hover:scale-[1.03] active:scale-[0.98]"
+          >
+            <Download className="size-4" />
+            Download ZIP
+          </button>
+        </div>
+
+        {filesLoading ? (
+          <p className="text-sm text-muted-foreground">
+            Loading files...
+          </p>
+        ) : files.length === 0 ? (
+          <div className="glass rounded-2xl p-10 text-center">
+            <FolderOpen className="mx-auto size-8 text-muted-foreground/60" />
+
+            <p className="mt-3 text-sm text-muted-foreground">
+              No generated files yet.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            {/* =====================================
+                File Explorer
+            ===================================== */}
+
+            <div className="glass float-in flex max-h-[75vh] flex-col overflow-hidden rounded-2xl lg:col-span-4 2xl:col-span-3">
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Files
+                </h3>
+
+                <span className="text-xs text-muted-foreground">
+                  {files.length}
+                </span>
+              </div>
+
+              <div className="space-y-0.5 overflow-y-auto p-2">
+                {files.map((file) => (
+                  <button
+                    key={file.path}
+                    onClick={() =>
+                      setSelectedFile(file)
+                    }
+                    title={file.path}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                      selectedFile?.path ===
+                      file.path
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:translate-x-0.5 hover:bg-white/60 hover:text-foreground dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <FileCode2 className="size-3.5 shrink-0" />
+
+                    <span className="truncate">
+                      {file.path}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* =====================================
+                Code Viewer
+            ===================================== */}
+
+            <div className="glass float-in flex max-h-[75vh] flex-col overflow-hidden rounded-2xl lg:col-span-8 2xl:col-span-9">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+                <span className="truncate font-mono text-xs text-muted-foreground">
+                  {selectedFile?.path ||
+                    "Select a file"}
+                </span>
+
+                <button
+                  onClick={handleCopy}
+                  disabled={!selectedFile}
+                  className="glass-inset flex h-7 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="size-3.5 text-success" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="size-3.5" />
+                      Copy
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <pre className="flex-1 overflow-auto bg-white/35 p-4 dark:bg-black/25 [&_code]:font-mono font-mono text-[13px] leading-6 text-foreground/90">
+                <code>
+                  {selectedFile?.content ||
+                    "No content"}
+                </code>
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </DashboardLayout>
   );
 }
 
-export default ProjectDetails;
+export default ProjectDetails;

@@ -35,6 +35,35 @@ const parseAIJson = (text) => {
   }
 };
 
+// Gemini models tried in order. A 503 "high demand" is per model, so
+// another model usually answers right away. Override with GEMINI_MODELS
+// (comma-separated).
+const DEFAULT_GEMINI_MODELS = [
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-3-flash-preview",
+];
+
+const getGeminiModels = () => {
+  const configured = (process.env.GEMINI_MODELS || "")
+    .split(",")
+    .map((model) => model.trim())
+    .filter(Boolean);
+
+  return configured.length > 0 ? configured : DEFAULT_GEMINI_MODELS;
+};
+
+// 503 / overloaded: worth one more try on the same model
+const isOverloaded = (message = "") =>
+  /\b503\b|UNAVAILABLE|high demand|overloaded/i.test(message);
+
+// Quota / missing model: move to the next model immediately
+const isUnusableModel = (message = "") =>
+  /\b(429|404)\b|RESOURCE_EXHAUSTED|quota|NOT_FOUND|no longer available/i.test(
+    message
+  );
+
 const generateWithGemini = async (prompt, retries) => {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("GEMINI_API_KEY is not loaded");
@@ -44,55 +73,99 @@ const generateWithGemini = async (prompt, retries) => {
     apiKey: process.env.GEMINI_API_KEY,
   });
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      console.log(
-        `🤖 Gemini request: Attempt ${attempt}/${retries}`
-      );
+  const models = getGeminiModels();
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-        },
-      });
+  // Attempts per model (the first model gets the full retry budget for
+  // invalid JSON; overload/quota errors move on sooner)
+  const attemptsPerModel = Math.max(1, Math.min(retries, 2));
+  const failures = [];
 
-      return parseAIJson(response.text);
-    } catch (error) {
-      console.error(
-        `Gemini failed: Attempt ${attempt}/${retries}`,
-        error.message
-      );
-
-      if (attempt < retries) {
-        const waitTime = 5000 * attempt;
-
+  for (const model of models) {
+    for (let attempt = 1; attempt <= attemptsPerModel; attempt++) {
+      try {
         console.log(
-          `Waiting ${waitTime / 1000}s before Gemini retry...`
+          `🤖 Gemini request (${model}): Attempt ${attempt}/${attemptsPerModel}`
         );
 
-        await sleep(waitTime);
+        const response = await ai.models.generateContent({
+          model,
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+          },
+        });
+
+        return parseAIJson(response.text);
+      } catch (error) {
+        const message = String(error.message || error);
+
+        console.error(
+          `Gemini failed (${model}): Attempt ${attempt}/${attemptsPerModel}`,
+          message.slice(0, 300)
+        );
+
+        if (isUnusableModel(message)) {
+          failures.push(`${model}: unavailable (quota or model)`);
+          break;
+        }
+
+        if (attempt < attemptsPerModel) {
+          const waitTime = isOverloaded(message) ? 3000 : 5000;
+
+          console.log(
+            `Waiting ${waitTime / 1000}s before retrying ${model}...`
+          );
+
+          await sleep(waitTime);
+        } else {
+          failures.push(
+            `${model}: ${isOverloaded(message) ? "overloaded" : message.slice(0, 120)}`
+          );
+        }
       }
     }
+
+    console.log(`↪️ Trying the next Gemini model...`);
   }
 
-  throw new Error("Gemini failed after all retry attempts");
+  throw new Error(
+    `Gemini failed on every model (${failures.join("; ")})`
+  );
 };
+
+// Groq fallback. The free/on-demand tier allows about 8,000 tokens per
+// minute per model (prompt + answer), so large prompts are skipped
+// instead of failing with 413. Override with GROQ_MODEL / GROQ_TPM_LIMIT.
+const DEFAULT_GROQ_MODEL = "qwen/qwen3.8-27b";
+
+const estimateTokens = (text = "") => Math.ceil(text.length / 3.5);
 
 const generateWithGroq = async (prompt) => {
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is not loaded");
   }
 
+  const model = process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL;
+  const tokensPerMinute = Number(process.env.GROQ_TPM_LIMIT) || 8000;
+
+  // Room for the generated files in the answer
+  const RESERVED_OUTPUT_TOKENS = 2000;
+  const promptTokens = estimateTokens(prompt);
+
+  if (promptTokens + RESERVED_OUTPUT_TOKENS > tokensPerMinute) {
+    throw new Error(
+      `prompt is about ${promptTokens} tokens, more than Groq ${model} accepts (${tokensPerMinute} tokens per minute incl. the answer); skipped`
+    );
+  }
+
   const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
   });
 
-  console.log("🟢 Switching to Groq fallback...");
+  console.log(`🟢 Switching to Groq fallback (${model})...`);
 
   const response = await groq.chat.completions.create({
-    model: "openai/gpt-oss-120b",
+    model,
     messages: [
       {
         role: "system",

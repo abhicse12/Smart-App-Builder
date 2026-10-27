@@ -40,37 +40,37 @@ function GenerationProgress({ agentStep }) {
   const completed = agentStep >= 3;
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="glass float-in rounded-2xl p-5" style={{ "--d": "200ms" }}>
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-sm font-semibold text-foreground">
             {completed
               ? "Application Generated"
               : "Application Generation"}
           </h2>
 
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {completed
               ? "Your application has been generated successfully"
               : idle
-              ? "Describe your application above and click Generate"
+              ? "Describe your application and click Generate"
               : "AI agents are working on your application"}
           </p>
         </div>
 
-        <span className="text-blue-400 font-semibold">
+        <span className="text-sm font-semibold text-primary">
           {progress}%
         </span>
       </div>
 
-      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-8">
+      <div className="mb-5 h-2 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
         <div
-          className="h-full bg-blue-600 transition-all duration-700"
+          className="h-full rounded-full bg-linear-to-r from-indigo-500 via-violet-500 to-pink-500 shadow-[0_0_12px] shadow-violet-500/60 transition-all duration-700"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-3.5">
         {steps.map((step, index) => {
           const stepCompleted = agentStep > index;
           const running = agentStep === index && !completed;
@@ -78,31 +78,22 @@ function GenerationProgress({ agentStep }) {
           return (
             <div
               key={step.name}
-              className="flex items-center gap-4"
+              className="flex items-center gap-3"
             >
               {stepCompleted || completed ? (
-                <CheckCircle2
-                  className="text-green-500"
-                  size={24}
-                />
+                <CheckCircle2 className="size-5 shrink-0 text-success" />
               ) : running ? (
-                <Loader2
-                  className="text-blue-500 animate-spin"
-                  size={24}
-                />
+                <Loader2 className="size-5 shrink-0 animate-spin text-primary" />
               ) : (
-                <Circle
-                  className="text-slate-600"
-                  size={24}
-                />
+                <Circle className="size-5 shrink-0 text-muted-foreground/40" />
               )}
 
               <div>
-                <h3 className="text-white font-medium">
+                <h3 className="text-sm font-medium text-foreground">
                   {step.name}
                 </h3>
 
-                <p className="text-sm text-slate-500">
+                <p className="text-xs text-muted-foreground">
                   {stepCompleted || completed
                     ? "Completed successfully"
                     : running
@@ -116,8 +107,8 @@ function GenerationProgress({ agentStep }) {
       </div>
 
       {completed && (
-        <div className="mt-6 rounded-lg bg-green-500/10 border border-green-500/20 p-4">
-          <p className="text-green-400 font-medium">
+        <div className="mt-5 rounded-lg border border-success/20 bg-success/10 px-3 py-2.5">
+          <p className="text-sm font-medium text-success">
             ✓ Application generation completed successfully
           </p>
         </div>
@@ -126,4 +117,4 @@ function GenerationProgress({ agentStep }) {
   );
 }
 
-export default GenerationProgress;
+export default GenerationProgress;

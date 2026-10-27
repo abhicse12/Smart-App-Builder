@@ -1,4 +1,13 @@
 import generateWithAI from "./aiService.js";
+import {
+  API_CONVENTIONS,
+  usesApiConventions,
+} from "./generationContract.js";
+import { UI_DESIGN_RULES } from "./uiDesignRules.js";
+import {
+  consoleFixerRules,
+  detectBasicProjectFromFiles,
+} from "./consoleProject.js";
 
 const modifyProject = async ({
   projectName,
@@ -6,7 +15,48 @@ const modifyProject = async ({
   techStack,
   files,
   userRequest,
+  knownProblems = [],
+  uiChange = false,
 }) => {
+  // Problems the static validator found in the current code. A request
+  // like "fix the login" is vague; these tell the agent what is broken.
+  const knownProblemsSection =
+    knownProblems.length > 0
+      ? `
+==================================================
+KNOWN PROBLEMS IN THE CURRENT PROJECT
+==================================================
+
+The project validator found these problems in the existing code:
+
+${knownProblems
+  .map((problem, index) => `${index + 1}. ${problem}`)
+  .join("\n")}
+
+If the user request asks to fix, repair or make something work, fix
+EVERY problem above that affects it (for "fix the login/signup": every
+auth, import/export, API path and JWT problem). Otherwise fix the
+problems in the files you change. Fix the root cause in every file
+involved, e.g. add the missing export AND keep the imports consistent.
+`
+      : "";
+
+  const conventionsSection = usesApiConventions(techStack)
+    ? `
+${API_CONVENTIONS}
+
+Apply these conventions to the code you write or fix. Do not rewrite
+working code only to match them.
+`
+    : "";
+
+  // Basic Python / Java programs keep their layout and sandbox rules
+  const basicProject = detectBasicProjectFromFiles(files);
+
+  const consoleSection = basicProject
+    ? consoleFixerRules(basicProject)
+    : "";
+
   const modificationPrompt = `
 You are a SURGICAL CODE MODIFICATION AGENT.
 
@@ -37,6 +87,10 @@ USER REQUEST
 ==================================================
 
 ${userRequest}
+${uiChange ? UI_DESIGN_RULES : ""}
+${knownProblemsSection}
+${conventionsSection}
+${consoleSection}
 
 ==================================================
 EXISTING PROJECT

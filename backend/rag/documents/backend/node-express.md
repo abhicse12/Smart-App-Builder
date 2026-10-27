@@ -89,11 +89,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 Use .env.example to document required variables.
 Example:
-PORT=5000
+PORT=5001
 JWT_SECRET=your-secret
 DATABASE_URL=your-database-url
 
@@ -189,7 +189,10 @@ import jwt from "jsonwebtoken";
 
 const authMiddleware = (req, res, next) => {
   try {
-    const token = req.cookies.token;
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ")
+      ? header.slice(7)
+      : null;
 
     if (!token) {
       return res.status(401).json({
@@ -220,8 +223,9 @@ export default authMiddleware;
 
 The exact authentication mechanism should depend on the generated application's requirements.
 
-10. Cookie-Based Authentication
-If cookie-based JWT authentication is selected, use:
+10. Cookie-Based Authentication (not used by generated apps)
+Generated apps use Bearer tokens. Only if cookie-based JWT authentication is
+explicitly required, use:
 import cookieParser from "cookie-parser";
 
 app.use(cookieParser());
@@ -544,7 +548,7 @@ dotenv.config();
 import app from "./app.js";
 
 const PORT =
-  process.env.PORT || 5000;
+  process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(
@@ -613,7 +617,7 @@ RUN npm install
 
 COPY . .
 
-EXPOSE 5000
+EXPOSE 5001
 
 CMD ["npm", "start"]
 

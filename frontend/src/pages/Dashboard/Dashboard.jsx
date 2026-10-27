@@ -3,8 +3,6 @@ import { useState } from "react";
 import DashboardLayout from "@/layouts/DashboardLayout/DashboardLayout";
 import WelcomeBanner from "@/components/WelcomeBanner/WelcomeBanner";
 import StatsCards from "@/components/StatsCards/StatsCards";
-import AgentStatus from "@/components/AgentStatus/AgentStatus";
-import GenerationProgress from "@/components/GenerationProgress/GenerationProgress";
 import NewProject from "@/components/NewProject/NewProject";
 import ProjectsList from "@/components/ProjectsList/ProjectsList";
 
@@ -27,7 +25,7 @@ function Dashboard() {
         onNewProject={() => setShowNewProject(true)}
       />
 
-      <StatsCards />
+      <StatsCards projects={projects} />
 
       <ProjectsList
         projects={projects}
@@ -44,4 +42,4 @@ function Dashboard() {
   );
 }
 
-export default Dashboard;
+export default Dashboard;

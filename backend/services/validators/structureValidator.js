@@ -23,7 +23,11 @@ const validateStructure = ({
       continue;
     }
 
-    if (file.content.trim().length === 0) {
+    // Python package markers are empty by design
+    if (
+      file.content.trim().length === 0 &&
+      !/(^|\/)__init__\.py$/.test(normalizePath(file.path))
+    ) {
       warnings.push(`Empty file detected: ${file.path}`);
     }
   }

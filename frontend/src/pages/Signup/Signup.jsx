@@ -8,6 +8,7 @@ import AuthLayout, {
   authInputClass,
   authLabelClass,
 } from "@/components/AuthLayout/AuthLayout";
+import GoogleSignInButton from "@/components/GoogleSignInButton/GoogleSignInButton";
 
 function Signup() {
   const navigate = useNavigate();
@@ -147,6 +148,8 @@ function Signup() {
         </button>
 
       </form>
+
+      <GoogleSignInButton />
 
       {/* Login */}
       <p className="mt-6 text-center text-sm text-muted-foreground">

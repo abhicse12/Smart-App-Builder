@@ -376,7 +376,7 @@ Generated files live in **MongoDB** (source of truth) and in **`backend/generate
 
 ## 🔌 REST API
 
-All routes except signup/login/logout require the `token` cookie. Every project route checks that the project belongs to the logged-in user.
+All routes except signup/login/google/logout require the `token` cookie. Every project route checks that the project belongs to the logged-in user.
 
 ### Auth: `/api/auth`
 
@@ -384,6 +384,7 @@ All routes except signup/login/logout require the `token` cookie. Every project 
 |---|---|---|
 | POST | `/signup` | Create an account (rate-limited: 10/hour per IP) |
 | POST | `/login` | Log in and set an HttpOnly JWT cookie valid for 7 days (10 failed attempts per 15 min) |
+| POST | `/google` | Verify a Google ID token `{ credential }`, find/create/link the user and set the same cookie |
 | GET | `/me` | Current user |
 | POST | `/logout` | Clear the cookie |
 
@@ -528,6 +529,7 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 | `JWT_SECRET` | ✅ | — | JWT signing secret (32+ characters recommended) |
 | `GEMINI_API_KEY` | ✅* | — | Gemini generation + embeddings |
 | `GROQ_API_KEY` | — | — | Groq fallback |
+| `GOOGLE_CLIENT_ID` | — | — | Enables Google login |
 | `PORT` | — | `5000` | API port |
 | `GEMINI_MODELS` | — | see above | Comma-separated Gemini model order |
 | `GROQ_MODEL` | — | `qwen/qwen3.8-27b` | Groq fallback model |
@@ -542,6 +544,7 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 | Variable | Default | Purpose |
 |---|---|---|
 | `VITE_API_URL` | `http://localhost:5000` | Backend base URL (without `/api`) |
+| `VITE_GOOGLE_CLIENT_ID` | — | Shows the "Continue with Google" button |
 
 ---
 

@@ -1,6 +1,9 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
+
+const googleClient = new OAuth2Client();
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
@@ -17,6 +20,20 @@ const authCookieOptions = () => ({
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax",
 });
+
+// Start a session: sign the JWT and store it in the HttpOnly cookie
+const setAuthCookie = (res, user) => {
+  const token = jwt.sign(
+    { userId: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.cookie("token", token, {
+    ...authCookieOptions(),
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+};
 
 // ==============================
 // SIGNUP
@@ -122,7 +139,8 @@ export const login = async (req, res) => {
       email: email.trim().toLowerCase(),
     });
 
-    if (!user) {
+    // Google-only accounts have no password to compare against
+    if (!user?.password) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -141,17 +159,8 @@ export const login = async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
     // JWT ko HttpOnly Cookie mein store karo
-    res.cookie("token", token, {
-      ...authCookieOptions(),
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    setAuthCookie(res, user);
 
     res.status(200).json({
       success: true,
@@ -168,6 +177,106 @@ export const login = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Login failed",
+    });
+  }
+};
+
+// ==============================
+// GOOGLE LOGIN
+// ==============================
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { credential } = req.body ?? {};
+
+    if (!isNonEmptyString(credential)) {
+      return res.status(400).json({
+        success: false,
+        message: "Google credential is required",
+      });
+    }
+
+    // Read here, not at import time: server.js loads .env after its
+    // imports. Without an audience, tokens issued to any other Google
+    // app would be accepted, so it must never be left empty.
+    const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
+
+    if (!clientId) {
+      console.error("Google Login Error: GOOGLE_CLIENT_ID is not set");
+
+      return res.status(503).json({
+        success: false,
+        message: "Google login is not configured",
+      });
+    }
+
+    let payload;
+
+    try {
+      // Checks Google's signature, the expiry and that the token was
+      // issued for this app
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: clientId,
+      });
+
+      payload = ticket.getPayload();
+    } catch (error) {
+      console.error("Google token rejected:", error.message);
+
+      return res.status(401).json({
+        success: false,
+        message: "Google sign-in failed",
+      });
+    }
+
+    const { sub, email, name, email_verified: emailVerified } = payload;
+
+    // An unverified email must never give access to an existing account
+    if (!email || !emailVerified) {
+      return res.status(401).json({
+        success: false,
+        message: "Your Google email is not verified",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let user = await User.findOne({ googleId: sub });
+
+    if (!user) {
+      user = await User.findOne({ email: normalizedEmail });
+
+      if (user) {
+        // Same person signed up with a password earlier: link Google
+        user.googleId = sub;
+        await user.save();
+      } else {
+        user = await User.create({
+          name: name?.trim() || normalizedEmail.split("@")[0],
+          email: normalizedEmail,
+          googleId: sub,
+        });
+      }
+    }
+
+    setAuthCookie(res, user);
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Google Login Error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Google login failed",
     });
   }
 };

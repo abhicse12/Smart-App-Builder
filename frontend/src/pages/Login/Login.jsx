@@ -8,6 +8,7 @@ import AuthLayout, {
   authInputClass,
   authLabelClass,
 } from "@/components/AuthLayout/AuthLayout";
+import GoogleSignInButton from "@/components/GoogleSignInButton/GoogleSignInButton";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -102,6 +103,8 @@ function Login() {
           Login
         </button>
       </form>
+
+      <GoogleSignInButton />
 
       {/* Signup */}
       <p className="mt-6 text-center text-sm text-muted-foreground">

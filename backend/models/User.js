@@ -16,9 +16,20 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Accounts created with Google have no password
     password: {
       type: String,
-      required: true,
+      required: function () {
+        return !this.googleId;
+      },
+    },
+
+    // Google's stable user id ("sub"); sparse so that many users
+    // without Google login can coexist under the unique index
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
     },
   },
   {

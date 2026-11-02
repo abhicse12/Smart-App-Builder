@@ -4,6 +4,7 @@ import { rateLimit } from "express-rate-limit";
 import {
   signup,
   login,
+  googleLogin,
   getMe,
   logout,
 } from "../controllers/authController.js";
@@ -39,6 +40,7 @@ const signupLimiter = rateLimit({
 
 router.post("/signup", signupLimiter, signup);
 router.post("/login", loginLimiter, login);
+router.post("/google", loginLimiter, googleLogin);
 router.get("/me", authMiddleware, getMe);
 router.post("/logout", logout);
 

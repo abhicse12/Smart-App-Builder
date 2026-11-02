@@ -7,6 +7,12 @@ import {
   consoleFixerRules,
   detectBasicProjectFromFiles,
 } from "./consoleProject.js";
+import { isPythonFullstackFiles } from "./stacks/python/detect.js";
+import { fixerRules as pythonFixerRules } from "./stacks/python/rules.js";
+import {
+  keepAiWritableFiles,
+  withoutUserData,
+} from "./stacks/python/templates.js";
 
 const fixProject = async ({
   projectName,
@@ -15,6 +21,12 @@ const fixProject = async ({
   errors,
   files,
 }) => {
+  const pythonFullstack = isPythonFullstackFiles(files);
+
+  if (pythonFullstack) {
+    files = withoutUserData(files);
+  }
+
   // Frontend/backend mismatches are fixed toward the shared conventions,
   // so the fixer does not pick a side at random
   const conventionsSection = usesApiConventions(techStack)
@@ -74,6 +86,7 @@ ${errors
 
 ${conventionsSection}
 ${consoleSection}
+${pythonFullstack ? pythonFixerRules : ""}
 
 ==================================================
 CURRENT PROJECT FILES
@@ -472,7 +485,9 @@ Do NOT include code fences.
 Do NOT include explanations outside JSON.
 `;
 
-  return await generateWithAI(fixerPrompt);
+  const result = await generateWithAI(fixerPrompt);
+
+  return pythonFullstack ? keepAiWritableFiles(result) : result;
 };
 
 export default fixProject;

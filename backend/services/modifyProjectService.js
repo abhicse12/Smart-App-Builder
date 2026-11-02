@@ -8,6 +8,12 @@ import {
   consoleFixerRules,
   detectBasicProjectFromFiles,
 } from "./consoleProject.js";
+import { isPythonFullstackFiles } from "./stacks/python/detect.js";
+import { fixerRules as pythonFixerRules } from "./stacks/python/rules.js";
+import {
+  keepAiWritableFiles,
+  withoutUserData,
+} from "./stacks/python/templates.js";
 
 const modifyProject = async ({
   projectName,
@@ -18,6 +24,12 @@ const modifyProject = async ({
   knownProblems = [],
   uiChange = false,
 }) => {
+  const pythonFullstack = isPythonFullstackFiles(files);
+
+  if (pythonFullstack) {
+    files = withoutUserData(files);
+  }
+
   // Problems the static validator found in the current code. A request
   // like "fix the login" is vague; these tell the agent what is broken.
   const knownProblemsSection =
@@ -91,6 +103,7 @@ ${uiChange ? UI_DESIGN_RULES : ""}
 ${knownProblemsSection}
 ${conventionsSection}
 ${consoleSection}
+${pythonFullstack ? pythonFixerRules : ""}
 
 ==================================================
 EXISTING PROJECT
@@ -509,7 +522,9 @@ VERY IMPORTANT:
 - Do NOT include explanations.
 `;
 
-  return await generateWithAI(modificationPrompt);
+  const result = await generateWithAI(modificationPrompt);
+
+  return pythonFullstack ? keepAiWritableFiles(result) : result;
 };
 
 export default modifyProject;

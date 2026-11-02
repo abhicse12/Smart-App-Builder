@@ -1,0 +1,8 @@
+node_modules/
+dist/
+__pycache__/
+.venv/
+.env
+.env.*
+!.env.example
+backend/data/users.json

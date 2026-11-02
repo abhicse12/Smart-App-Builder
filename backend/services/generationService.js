@@ -11,6 +11,8 @@ import {
   getBasicProject,
   summarizeConsoleModules,
 } from "./consoleProject.js";
+import generatePythonApp from "./stacks/python/pipeline.js";
+import { isPythonFullstack } from "./stacks/python/detect.js";
 
 const BATCH_SIZE = 4;
 
@@ -94,6 +96,11 @@ const generateApp = async (
   techStack = [],
   projectId = null
 ) => {
+
+  // Python + React / FastAPI has its own pipeline
+  if (isPythonFullstack(techStack)) {
+    return generatePythonApp(prompt, projectId);
+  }
 
   /* =======================================================
      1. ARCHITECT AGENT

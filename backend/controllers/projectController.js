@@ -983,6 +983,7 @@ export const modifyProject = async (req, res) => {
         const smoke = await runAuthSmokeTest({
           files: project.files,
           previewUrl: runnerResult?.frontend?.previewUrl,
+          projectId: project._id,
         });
 
         if (!smoke.skipped && !smoke.success) {

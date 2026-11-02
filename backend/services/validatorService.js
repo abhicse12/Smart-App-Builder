@@ -7,6 +7,8 @@ import validateModuleExports from "./validators/moduleExportsValidator.js";
 import validateDataFiles from "./validators/dataFilesValidator.js";
 import validateConsoleProject from "./validators/consoleValidator.js";
 import { detectBasicProjectFromFiles } from "./consoleProject.js";
+import { isPythonFullstackFiles } from "./stacks/python/detect.js";
+import validatePythonProject from "./stacks/python/validators.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -30,6 +32,23 @@ const validateProject = (project) => {
     errors,
     warnings,
   });
+
+  // Python full-stack projects have their own checks
+  if (isPythonFullstackFiles(files)) {
+    validatePythonProject({
+      files,
+      errors,
+      warnings,
+    });
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      totalFiles: files.length,
+      projectType: "python-fullstack",
+    };
+  }
 
   // Basic Python / Java projects (console or built-in web server): none
   // of the React/Express checks apply

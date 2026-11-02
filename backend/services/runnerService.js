@@ -2,9 +2,20 @@ import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { findUnreachableMongoUri } from "./sandboxEnv.js";
+import {
+  removePythonFrontend,
+  runPythonFullstack,
+} from "./stacks/python/runner.js";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+// Health check budgets while npm install and the build check run.
+// npm install alone took 5 minutes on a slow connection, and a
+// premature failure sends working code to the Fixer. Containers that
+// stop end the wait right away, so these only cost time on a real hang.
+const BACKEND_HEALTH_ATTEMPTS = 120;
+const FRONTEND_HEALTH_ATTEMPTS = 240;
 
 // =====================================
 // Docker command
@@ -96,6 +107,30 @@ const getDockerHostPort = async (
 };
 
 // =====================================
+// Check whether the container is running
+//
+// A stopped container can never become
+// healthy, so health checks end right away.
+// =====================================
+
+const isContainerRunning = async (
+  containerName
+) => {
+  try {
+    const result = await runCommand("docker", [
+      "inspect",
+      "-f",
+      "{{.State.Running}}",
+      containerName,
+    ]);
+
+    return result.stdout.trim() === "true";
+  } catch {
+    return false;
+  }
+};
+
+// =====================================
 // Check whether any process inside the
 // container is running from processDir
 // (e.g. the backend's npm start / node)
@@ -169,6 +204,16 @@ const waitForHealth = async (
       console.log(
         `${serviceName} not reachable yet (${lastError})`
       );
+    }
+
+    if (
+      containerName &&
+      !(await isContainerRunning(containerName))
+    ) {
+      lastError =
+        `${serviceName} container stopped before becoming healthy (last error: ${lastError})`;
+
+      break;
     }
 
     // Stop early if the service process has exited.
@@ -347,6 +392,13 @@ const waitForContainerHealth = async (
           throw error;
         }
       }
+
+      if (!(await isContainerRunning(containerName))) {
+        lastError =
+          `${serviceName} container stopped before becoming healthy`;
+
+        break;
+      }
     }
 
     await sleep(2000);
@@ -400,6 +452,15 @@ const detectProjectType = (projectRoot) => {
     "src",
     "main.jsx"
   );
+
+  // FastAPI backend (a Node backend has backend/package.json instead)
+  if (
+    hasFrontend &&
+    fs.existsSync(path.join(projectRoot, "backend", "requirements.txt")) &&
+    !fs.existsSync(path.join(projectRoot, "backend", "package.json"))
+  ) {
+    return "python-fullstack";
+  }
 
   let isReactVite = false;
 
@@ -844,6 +905,8 @@ const stopProject = async (projectId) => {
   const containerName =
     `ai-builder-${projectId}`;
 
+  await removePythonFrontend(containerName, { runCommand });
+
   console.log(
     `Stopping Docker container: ${containerName}`
   );
@@ -927,6 +990,8 @@ const runProject = async (projectId) => {
   const containerName =
     `ai-builder-${projectId}`;
 
+  await removePythonFrontend(containerName, { runCommand });
+
   // =====================================
   // Remove old container
   // =====================================
@@ -942,6 +1007,15 @@ const runProject = async (projectId) => {
     ]);
   } catch {
     // Container does not exist
+  }
+
+  if (projectType === "python-fullstack") {
+    return runPythonFullstack({
+      projectId,
+      projectRoot,
+      containerName,
+      docker: { runCommand, getDockerLogs, getDockerHostPort },
+    });
   }
 
   // =====================================
@@ -1134,7 +1208,9 @@ const runProject = async (projectId) => {
 
     await waitForHealth(
       frontendUrl,
-      "React Frontend"
+      "React Frontend",
+      FRONTEND_HEALTH_ATTEMPTS,
+      { containerName }
     );
 
     const frontendPreviewUrl =
@@ -1294,7 +1370,7 @@ const runProject = async (projectId) => {
     await waitForHealth(
       backendUrl,
       "Node Backend",
-      60,
+      BACKEND_HEALTH_ATTEMPTS,
       {
         containerName,
         processDir: "/app/backend",
@@ -1308,7 +1384,8 @@ const runProject = async (projectId) => {
     await waitForContainerHealth(
       containerName,
       frontendPort,
-      "React Frontend"
+      "React Frontend",
+      FRONTEND_HEALTH_ATTEMPTS
     );
 
     const frontendPreviewUrl =

@@ -18,6 +18,7 @@
 - [Validation Layer](#-validation-layer)
 - [Docker Runtime](#-docker-runtime)
 - [Supported Project Types](#-supported-project-types)
+- [Python Full-Stack Projects](#-python-full-stack-projects)
 - [Database Models](#️-database-models)
 - [REST API](#-rest-api)
 - [Project Structure](#-project-structure)
@@ -98,7 +99,7 @@ Requirement + Stack → RAG → Architect → Coder (batches) → Validator ⇄ 
 
 ### Stacks a user can select
 
-`HTML`, `CSS`, `JavaScript`, `React`, `Node.js`, `Express`, `MongoDB`, `Vite`, `Tailwind CSS`, `Next.js`, `MySQL`, `PostgreSQL`, `Python`, `Java`
+`HTML`, `CSS`, `JavaScript`, `React`, `Node.js`, `Express`, `MongoDB`, `Vite`, `Tailwind CSS`, `Next.js`, `MySQL`, `PostgreSQL`, `Python`, `FastAPI`, `Java`
 
 How the selection maps to what gets generated is described in [Supported Project Types](#-supported-project-types).
 
@@ -325,6 +326,7 @@ Errors are written as instructions the Fixer Agent can act on.
 | Project type | Detected by | Image | Command | Limits |
 |---|---|---|---|---|
 | `fullstack` | `backend/` + `frontend/` | `node:22` | `npm install && npm start` (backend) · `npm run build` check + `npm run dev` (frontend) | 768 MB, 1 CPU, 150 PIDs |
+| `python-fullstack` | `frontend/` + `backend/requirements.txt` (no `backend/package.json`) | `python:3.12-slim` + `node:22` | `uvicorn` (source read-only, only `backend/data` writable) · `npm run build` check + `npm run dev` | 512 MB + 768 MB, 1 CPU each, 100 + 150 PIDs |
 | `react` | `frontend/` with React + Vite | `node:22-alpine` | `npm install && npm run dev` | 512 MB, 1 CPU, 100 PIDs |
 | `python-web` | `server.py` | `python:3.12-slim` | `python server.py` | read-only FS |
 | `java-web` | `src/Main.java` + `templates/` or `static/` | `eclipse-temurin:21-jdk` | `javac … && java Main` | read-only FS |
@@ -347,10 +349,44 @@ All containers run with `--security-opt no-new-privileges` and `--cap-drop=ALL` 
 | React + Node.js / Express (+ MongoDB) | Full-stack: `frontend/` (Vite proxy `/api` → `:5001`) + `backend/` (Express, JWT Bearer auth). MongoDB when `MONGO_URI` is reachable, otherwise a JSON-file demo mode in `backend/data/` |
 | Python only | Console program `main.py` + `tests/` (standard library) |
 | Java only | Console program `src/Main.java` + `src/TestRunner.java` |
+| Python + React/Vite, or FastAPI | Full-stack: `frontend/` (React + Vite + Tailwind) + `backend/` (FastAPI) with real signup/login and JSON-file storage, see [Python Full-Stack Projects](#-python-full-stack-projects) |
 | Python + HTML/CSS(/JS) | `server.py` on Python's built-in `http.server`, plus `templates/` and `static/` |
 | Java + HTML/CSS(/JS) | `src/Main.java` on Java's built-in `HttpServer`, plus `templates/` and `static/` |
 
 Basic Python/Java projects use no frameworks (no Flask, Django, FastAPI or Spring Boot). Their logic stays in Python/Java rather than in JavaScript.
+
+---
+
+## 🐍 Python Full-Stack Projects
+
+Python + React/Vite, or FastAPI, runs its own pipeline in `backend/services/stacks/python/`. MERN and the other stacks are not routed through it.
+
+```text
+backend/services/stacks/python/
+├── detect.js          # Which stacks and projects belong here
+├── pipeline.js        # Architect → Coder → validate/fix → Docker → auth test
+├── rules.js           # Rules for the Architect, Coder, Fixer and Modify prompts
+├── templates.js       # Which files the AI may and may not change
+├── templates/         # Fixed, tested project files (auth, storage, build setup)
+├── validators.js      # FastAPI routes, Python imports, frontend calls, App routes
+├── runner.js          # Two Docker containers sharing one network
+└── authSmokeTest.js   # Real auth checks on the running app
+```
+
+**Authentication is real; only the database is replaced by JSON.** Generated users have no database URL, so accounts and app data live in `backend/data/*.json`.
+
+| Part | Implementation |
+|---|---|
+| Passwords | Salted **scrypt** hashes (standard library), compared in constant time |
+| Sessions | Signed **JWT** (HS256, 7 days) sent as a Bearer token |
+| Secret | `JWT_SECRET`, or a random secret created once in `backend/data/.env.jwt_secret` (left out of downloads) |
+| Protected routes | `Depends(get_current_user)`; records store `userId`, and other users get 404 |
+| JSON storage | `JsonCollection`: a lock plus atomic file replacement, so a crash cannot leave a half-written file |
+| Frontend | Axios client with the token, `AuthContext`, `ProtectedRoute`, Login and Signup pages |
+
+**The AI does not write authentication.** The templates are added as they are, and any AI change to a locked file is discarded. The AI writes the feature routers, schemas, pages and `App.jsx`, and may restyle the Login and Signup pages. Backend packages are pinned in `requirements.txt`.
+
+**Auth test on the running app, through the Vite proxy:** signup (201), duplicate email (400), wrong password (401), login (200), `/me` without a token (401) and with one (200), the password stored only as a hash, and logged-in feature GET routes not crashing. The test account is removed afterwards.
 
 ---
 
@@ -445,6 +481,7 @@ App-builder/
 │   │   ├── consoleProject.js     # Basic Python/Java projects
 │   │   ├── uiDesignRules.js      # Design rules for UI modifications
 │   │   ├── validatorService.js   # Runs all validators
+│   │   ├── stacks/python/        # Python full-stack generator (own pipeline)
 │   │   ├── validators/           # 7 focused validators
 │   │   ├── runnerService.js      # Docker runner
 │   │   ├── authSmokeTest.js      # Signup/login check on the running app
@@ -569,6 +606,8 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 - `Next.js`, `MySQL` and `PostgreSQL` can be selected, but they have no dedicated rule or knowledge files yet.
 - The AI providers' free-tier limits can slow down or block generation.
 - There are no automated tests yet; `backend/scripts/dev/` holds manual scripts.
+- Python full-stack projects store data in JSON files with one server process. That suits demos, not production traffic. A selected database is not used.
+- In Python full-stack projects, Modify cannot change the locked authentication files, so requests such as adding a signup field are not applied to the backend. Google login, password reset and roles are not generated.
 
 ---
 

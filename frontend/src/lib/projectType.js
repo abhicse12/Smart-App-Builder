@@ -45,5 +45,22 @@ export const getBasicWebLanguage = (techStack = []) => {
   return hasPython ? "python" : "java";
 };
 
+// Python + React / FastAPI: same rule as the backend
+// (services/stacks/python/detect.js)
+export const isPythonFullstack = (techStack = []) => {
+  const list = (Array.isArray(techStack) ? techStack : []).map((tech) =>
+    String(tech).trim().toLowerCase()
+  );
+
+  if (list.some((tech) => /node|express|mern|next|django|flask|spring|\bjava\b/.test(tech))) {
+    return false;
+  }
+
+  return (
+    list.some((tech) => tech.includes("fastapi")) ||
+    (list.includes("python") && list.some((tech) => /react|vite/.test(tech)))
+  );
+};
+
 export const languageLabel = (language) =>
   language === "python" ? "Python" : language === "java" ? "Java" : "";

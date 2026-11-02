@@ -8,6 +8,7 @@ import {
   getBasicWebLanguage,
   getConsoleLanguage,
   languageLabel,
+  isPythonFullstack,
 } from "@/lib/projectType";
 
 function NewProject({ onClose, onProjectCreated }) {
@@ -32,6 +33,7 @@ function NewProject({ onClose, onProjectCreated }) {
     "MySQL",
     "PostgreSQL",
     "Python",
+    "FastAPI",
     "Java",
   ];
 
@@ -218,6 +220,15 @@ function NewProject({ onClose, onProjectCreated }) {
                 : web pages served by {languageLabel(getBasicWebLanguage(formData.techStack))}
                 {"'"}s built-in server (no frameworks), with the program logic
                 in {languageLabel(getBasicWebLanguage(formData.techStack))}.
+              </p>
+            )}
+
+            {/* Python + React / FastAPI: full-stack app with real login */}
+            {isPythonFullstack(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                Python full-stack: FastAPI backend + React frontend with real
+                login. Data is stored in JSON files, so no database URL is
+                needed (a selected database is not used).
               </p>
             )}
 

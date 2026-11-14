@@ -601,6 +601,10 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 | `GROQ_TPM_LIMIT` | — | `8000` | Groq tokens/minute limit |
 | `CLIENT_URL` | — | `http://localhost:5173` | Allowed frontend origin(s), comma-separated |
 | `NODE_ENV` | — | — | `production` hides error details and sets a `Secure` cookie |
+| `TRUST_PROXY` | — | — | `true` behind a reverse proxy (e.g. Caddy) |
+| `PREVIEW_BASE_DOMAIN` | — | — | Previews become `https://p<port>.<domain>`; the reverse proxy forwards them to `127.0.0.1:<port>` |
+| `MAX_RUNNING_PREVIEWS` | — | no limit | Starting one more preview stops the oldest |
+| `PREVIEW_TTL_MINUTES` | — | never | Previews stop automatically after this many minutes |
 
 \* The server starts without it, but RAG retrieval needs Gemini embeddings.
 

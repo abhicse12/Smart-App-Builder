@@ -4,6 +4,9 @@
 // In-memory: valid for a single backend process.
 const busyProjects = new Map(); // projectId -> operation name
 
+export const isProjectBusy = (projectId) =>
+  busyProjects.has(String(projectId));
+
 export const withProjectLock = (operation, handler) =>
   async (req, res) => {
     const projectId =

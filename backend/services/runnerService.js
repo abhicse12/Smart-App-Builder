@@ -7,6 +7,7 @@ import {
   runPythonFullstack,
 } from "./stacks/python/runner.js";
 import { runJavaFullstack } from "./stacks/java/runner.js";
+import { makeRoomForPreview } from "./previewManager.js";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -999,6 +1000,11 @@ const runProject = async (projectId) => {
 
   const containerName =
     `ai-builder-${projectId}`;
+
+  // Console programs run to completion, so only previews count
+  if (projectType !== "python" && projectType !== "java") {
+    await makeRoomForPreview(projectId, stopProject);
+  }
 
   await removePythonFrontend(containerName, { runCommand });
 

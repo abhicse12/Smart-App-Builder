@@ -10,6 +10,7 @@ import { ZipArchive } from "archiver";
 import runProjectInDocker, {
   stopProject,
 } from "../services/runnerService.js";
+import { toPublicRunnerResult } from "../services/previewManager.js";
 
 import writeProjectFiles from "../services/writeProjectFiles.js";
 import modifyValidatorService from "../services/modifyValidatorService.js";
@@ -371,7 +372,7 @@ export const runProject = async (req, res) => {
               ? "Project started successfully"
               : "Project fixed and started successfully",
           projectId: project._id,
-          runner: runnerResult,
+          runner: toPublicRunnerResult(runnerResult),
           runtimeFixAttempts:
             runtimeFixAttempt - 1,
         });
@@ -1074,7 +1075,7 @@ export const modifyProject = async (req, res) => {
         projectId: project._id,
         modifiedFiles: [...changedFiles],
         errors: remainingProblems,
-        runner: runnerResult,
+        runner: toPublicRunnerResult(runnerResult),
       });
     }
 
@@ -1093,7 +1094,7 @@ export const modifyProject = async (req, res) => {
 
       validation,
 
-      runner: runnerResult,
+      runner: toPublicRunnerResult(runnerResult),
     });
   } catch (error) {
     console.error(

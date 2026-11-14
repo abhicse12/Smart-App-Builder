@@ -1,0 +1,4 @@
+
+# Build output an IDE may create inside the generator templates
+backend/services/stacks/*/templates/**/target/
+backend/services/stacks/*/templates/**/__pycache__/

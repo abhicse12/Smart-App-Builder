@@ -14,6 +14,12 @@ import {
   keepAiWritableFiles,
   withoutUserData,
 } from "./stacks/python/templates.js";
+import { isJavaFullstackFiles } from "./stacks/java/detect.js";
+import { fixerRules as javaFixerRules } from "./stacks/java/rules.js";
+import {
+  keepAiWritableFiles as keepJavaAiWritableFiles,
+  withoutUserData as withoutJavaUserData,
+} from "./stacks/java/templates.js";
 
 const modifyProject = async ({
   projectName,
@@ -28,6 +34,12 @@ const modifyProject = async ({
 
   if (pythonFullstack) {
     files = withoutUserData(files);
+  }
+
+  const javaFullstack = isJavaFullstackFiles(files);
+
+  if (javaFullstack) {
+    files = withoutJavaUserData(files);
   }
 
   // Problems the static validator found in the current code. A request
@@ -104,6 +116,7 @@ ${knownProblemsSection}
 ${conventionsSection}
 ${consoleSection}
 ${pythonFullstack ? pythonFixerRules : ""}
+${javaFullstack ? javaFixerRules : ""}
 
 ==================================================
 EXISTING PROJECT
@@ -523,6 +536,10 @@ VERY IMPORTANT:
 `;
 
   const result = await generateWithAI(modificationPrompt);
+
+  if (javaFullstack) {
+    return keepJavaAiWritableFiles(result);
+  }
 
   return pythonFullstack ? keepAiWritableFiles(result) : result;
 };

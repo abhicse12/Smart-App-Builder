@@ -13,6 +13,8 @@ import {
 } from "./consoleProject.js";
 import generatePythonApp from "./stacks/python/pipeline.js";
 import { isPythonFullstack } from "./stacks/python/detect.js";
+import generateJavaApp from "./stacks/java/pipeline.js";
+import { isJavaFullstack } from "./stacks/java/detect.js";
 
 const BATCH_SIZE = 4;
 
@@ -100,6 +102,11 @@ const generateApp = async (
   // Python + React / FastAPI has its own pipeline
   if (isPythonFullstack(techStack)) {
     return generatePythonApp(prompt, projectId);
+  }
+
+  // Java + React / Spring Boot has its own pipeline
+  if (isJavaFullstack(techStack)) {
+    return generateJavaApp(prompt, projectId);
   }
 
   /* =======================================================

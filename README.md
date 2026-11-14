@@ -19,6 +19,7 @@
 - [Docker Runtime](#-docker-runtime)
 - [Supported Project Types](#-supported-project-types)
 - [Python Full-Stack Projects](#-python-full-stack-projects)
+- [Java Full-Stack Projects](#-java-full-stack-projects)
 - [Database Models](#️-database-models)
 - [REST API](#-rest-api)
 - [Project Structure](#-project-structure)
@@ -86,7 +87,7 @@ Requirement + Stack → RAG → Architect → Coder (batches) → Validator ⇄ 
 | **Embeddings / RAG** | `gemini-embedding-001`, cosine similarity in Node.js, chunks stored in MongoDB |
 | **Code formatting** | Prettier (generated files are formatted before saving) |
 | **Packaging** | archiver (ZIP download) |
-| **Sandbox runtime** | Docker (`nginx:alpine`, `node:22-alpine`, `node:22`, `python:3.12-slim`, `eclipse-temurin:21-jdk`) |
+| **Sandbox runtime** | Docker (`nginx:alpine`, `node:22-alpine`, `node:22`, `python:3.12-slim`, `eclipse-temurin:21-jdk`, `maven:3.9-eclipse-temurin-21`) |
 | **Tooling** | Nodemon, oxlint, Git |
 
 ### Default AI models
@@ -99,7 +100,7 @@ Requirement + Stack → RAG → Architect → Coder (batches) → Validator ⇄ 
 
 ### Stacks a user can select
 
-`HTML`, `CSS`, `JavaScript`, `React`, `Node.js`, `Express`, `MongoDB`, `Vite`, `Tailwind CSS`, `Next.js`, `MySQL`, `PostgreSQL`, `Python`, `FastAPI`, `Java`
+`HTML`, `CSS`, `JavaScript`, `React`, `Node.js`, `Express`, `MongoDB`, `Vite`, `Tailwind CSS`, `Next.js`, `MySQL`, `PostgreSQL`, `Python`, `FastAPI`, `Java`, `Spring Boot`
 
 How the selection maps to what gets generated is described in [Supported Project Types](#-supported-project-types).
 
@@ -328,6 +329,7 @@ Errors are written as instructions the Fixer Agent can act on.
 | `fullstack` | `backend/` + `frontend/` | `node:22` | `npm install && npm start` (backend) · `npm run build` check + `npm run dev` (frontend) | 768 MB, 1 CPU, 150 PIDs |
 | `python-fullstack` | `frontend/` + `backend/requirements.txt` (no `backend/package.json`) | `python:3.12-slim` + `node:22` | `uvicorn` (source read-only, only `backend/data` writable) · `npm run build` check + `npm run dev` | 512 MB + 768 MB, 1 CPU each, 100 + 150 PIDs |
 | `react` | `frontend/` with React + Vite | `node:22-alpine` | `npm install && npm run dev` | 512 MB, 1 CPU, 100 PIDs |
+| `java-fullstack` | `frontend/` + `backend/pom.xml` (no `backend/package.json`) | `maven:3.9-eclipse-temurin-21` + `node:22` | Maven build in `/tmp` + `java -jar` (source read-only, only `backend/data` writable) · `npm run build` check + `npm run dev` | 1 GB + 768 MB, 1 CPU each, 200 + 150 PIDs |
 | `python-web` | `server.py` | `python:3.12-slim` | `python server.py` | read-only FS |
 | `java-web` | `src/Main.java` + `templates/` or `static/` | `eclipse-temurin:21-jdk` | `javac … && java Main` | read-only FS |
 | `static` | root `index.html` | `nginx:alpine` | files mounted read-only | 256 MB, 1 CPU, 100 PIDs |
@@ -350,6 +352,7 @@ All containers run with `--security-opt no-new-privileges` and `--cap-drop=ALL` 
 | Python only | Console program `main.py` + `tests/` (standard library) |
 | Java only | Console program `src/Main.java` + `src/TestRunner.java` |
 | Python + React/Vite, or FastAPI | Full-stack: `frontend/` (React + Vite + Tailwind) + `backend/` (FastAPI) with real signup/login and JSON-file storage, see [Python Full-Stack Projects](#-python-full-stack-projects) |
+| Java + React/Vite, or Spring Boot | Full-stack: `frontend/` (React + Vite + Tailwind) + `backend/` (Spring Boot) with real signup/login and JSON-file storage, see [Java Full-Stack Projects](#-java-full-stack-projects) |
 | Python + HTML/CSS(/JS) | `server.py` on Python's built-in `http.server`, plus `templates/` and `static/` |
 | Java + HTML/CSS(/JS) | `src/Main.java` on Java's built-in `HttpServer`, plus `templates/` and `static/` |
 
@@ -387,6 +390,30 @@ backend/services/stacks/python/
 **The AI does not write authentication.** The templates are added as they are, and any AI change to a locked file is discarded. The AI writes the feature routers, schemas, pages and `App.jsx`, and may restyle the Login and Signup pages. Backend packages are pinned in `requirements.txt`.
 
 **Auth test on the running app, through the Vite proxy:** signup (201), duplicate email (400), wrong password (401), login (200), `/me` without a token (401) and with one (200), the password stored only as a hash, and logged-in feature GET routes not crashing. The test account is removed afterwards.
+
+---
+
+## ☕ Java Full-Stack Projects
+
+Java + React/Vite, or Spring Boot, runs its own pipeline in `backend/services/stacks/java/`, with the same files as the Python stack. MERN, Python and basic Java projects are not routed through it.
+
+Authentication is real here too, and only the database is replaced by JSON in `backend/data/*.json`.
+
+| Part | Implementation |
+|---|---|
+| Security | **Spring Security**: stateless filter chain, every route needs a login except signup, login, `/health` and `GET /api/public/**` |
+| Passwords | **BCrypt** hashes |
+| Sessions | Signed **JWT** (HS256, 7 days, JJWT) sent as a Bearer token |
+| Secret | `JWT_SECRET`, or a random secret created once in `backend/data/.env.jwt_secret` |
+| Protected routes | `@AuthenticationPrincipal AuthUser`; records store `userId`, and other users get 404 |
+| JSON storage | `JsonCollection`: a lock plus atomic file replacement |
+| Frontend | The same Axios client, `AuthContext`, `ProtectedRoute`, Login and Signup pages |
+
+**The AI does not write authentication.** Locked templates cover `pom.xml`, security, auth, storage and error handling. The AI writes `controllers`, `services`, `dto`, pages and `App.jsx`. The validator rejects JPA, Lombok and other packages missing from `pom.xml`, wrong packages, duplicate routes and frontend calls with no matching route. Compile errors from Maven go to the Fixer.
+
+**Build:** the source is copied to `/tmp` and built there, so `target/` never appears in the project. Maven packages stay in the shared Docker volume `ai-builder-maven-cache`, so only the first build downloads them. Generated code can write to that volume, which suits a local machine but not public hosting.
+
+The auth test on the running app is the same as for Python projects.
 
 ---
 
@@ -482,6 +509,7 @@ App-builder/
 │   │   ├── uiDesignRules.js      # Design rules for UI modifications
 │   │   ├── validatorService.js   # Runs all validators
 │   │   ├── stacks/python/        # Python full-stack generator (own pipeline)
+│   │   ├── stacks/java/          # Java full-stack generator (own pipeline)
 │   │   ├── validators/           # 7 focused validators
 │   │   ├── runnerService.js      # Docker runner
 │   │   ├── authSmokeTest.js      # Signup/login check on the running app
@@ -606,6 +634,7 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 - `Next.js`, `MySQL` and `PostgreSQL` can be selected, but they have no dedicated rule or knowledge files yet.
 - The AI providers' free-tier limits can slow down or block generation.
 - There are no automated tests yet; `backend/scripts/dev/` holds manual scripts.
+- Java full-stack projects have the same two limits as Python full-stack projects below. Their first build can take several minutes while Maven downloads packages.
 - Python full-stack projects store data in JSON files with one server process. That suits demos, not production traffic. A selected database is not used.
 - In Python full-stack projects, Modify cannot change the locked authentication files, so requests such as adding a signup field are not applied to the backend. Google login, password reset and roles are not generated.
 

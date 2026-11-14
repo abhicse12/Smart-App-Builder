@@ -62,5 +62,22 @@ export const isPythonFullstack = (techStack = []) => {
   );
 };
 
+// Java + React / Spring Boot: same rule as the backend
+// (services/stacks/java/detect.js)
+export const isJavaFullstack = (techStack = []) => {
+  const list = (Array.isArray(techStack) ? techStack : []).map((tech) =>
+    String(tech).trim().toLowerCase()
+  );
+
+  if (list.some((tech) => /node|express|mern|next|django|flask|fastapi|uvicorn|python/.test(tech))) {
+    return false;
+  }
+
+  return (
+    list.some((tech) => tech.includes("spring")) ||
+    (list.includes("java") && list.some((tech) => /react|vite/.test(tech)))
+  );
+};
+
 export const languageLabel = (language) =>
   language === "python" ? "Python" : language === "java" ? "Java" : "";

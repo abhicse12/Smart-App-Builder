@@ -8,6 +8,12 @@ import projectRoutes from "./routes/projectRoutes.js";
 
 const app = express();
 
+// Behind a reverse proxy (Caddy on the server): use the client's address and
+// protocol from X-Forwarded-* headers. Only the first proxy is trusted.
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
+
 // Frontend origin(s) allowed to call the API with cookies.
 // CLIENT_URL may hold several origins separated by commas.
 const allowedOrigins = (

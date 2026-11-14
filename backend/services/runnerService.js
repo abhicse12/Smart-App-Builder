@@ -6,6 +6,7 @@ import {
   removePythonFrontend,
   runPythonFullstack,
 } from "./stacks/python/runner.js";
+import { runJavaFullstack } from "./stacks/java/runner.js";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -460,6 +461,15 @@ const detectProjectType = (projectRoot) => {
     !fs.existsSync(path.join(projectRoot, "backend", "package.json"))
   ) {
     return "python-fullstack";
+  }
+
+  // Spring Boot backend
+  if (
+    hasFrontend &&
+    fs.existsSync(path.join(projectRoot, "backend", "pom.xml")) &&
+    !fs.existsSync(path.join(projectRoot, "backend", "package.json"))
+  ) {
+    return "java-fullstack";
   }
 
   let isReactVite = false;
@@ -1011,6 +1021,15 @@ const runProject = async (projectId) => {
 
   if (projectType === "python-fullstack") {
     return runPythonFullstack({
+      projectId,
+      projectRoot,
+      containerName,
+      docker: { runCommand, getDockerLogs, getDockerHostPort },
+    });
+  }
+
+  if (projectType === "java-fullstack") {
+    return runJavaFullstack({
       projectId,
       projectRoot,
       containerName,

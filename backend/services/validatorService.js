@@ -9,6 +9,8 @@ import validateConsoleProject from "./validators/consoleValidator.js";
 import { detectBasicProjectFromFiles } from "./consoleProject.js";
 import { isPythonFullstackFiles } from "./stacks/python/detect.js";
 import validatePythonProject from "./stacks/python/validators.js";
+import { isJavaFullstackFiles } from "./stacks/java/detect.js";
+import validateJavaProject from "./stacks/java/validators.js";
 
 const validateProject = (project) => {
   const errors = [];
@@ -47,6 +49,23 @@ const validateProject = (project) => {
       warnings,
       totalFiles: files.length,
       projectType: "python-fullstack",
+    };
+  }
+
+  // Java full-stack projects have their own checks
+  if (isJavaFullstackFiles(files)) {
+    validateJavaProject({
+      files,
+      errors,
+      warnings,
+    });
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      totalFiles: files.length,
+      projectType: "java-fullstack",
     };
   }
 

@@ -13,6 +13,12 @@ import {
   keepAiWritableFiles,
   withoutUserData,
 } from "./stacks/python/templates.js";
+import { isJavaFullstackFiles } from "./stacks/java/detect.js";
+import { fixerRules as javaFixerRules } from "./stacks/java/rules.js";
+import {
+  keepAiWritableFiles as keepJavaAiWritableFiles,
+  withoutUserData as withoutJavaUserData,
+} from "./stacks/java/templates.js";
 
 const fixProject = async ({
   projectName,
@@ -25,6 +31,12 @@ const fixProject = async ({
 
   if (pythonFullstack) {
     files = withoutUserData(files);
+  }
+
+  const javaFullstack = isJavaFullstackFiles(files);
+
+  if (javaFullstack) {
+    files = withoutJavaUserData(files);
   }
 
   // Frontend/backend mismatches are fixed toward the shared conventions,
@@ -87,6 +99,7 @@ ${errors
 ${conventionsSection}
 ${consoleSection}
 ${pythonFullstack ? pythonFixerRules : ""}
+${javaFullstack ? javaFixerRules : ""}
 
 ==================================================
 CURRENT PROJECT FILES
@@ -486,6 +499,10 @@ Do NOT include explanations outside JSON.
 `;
 
   const result = await generateWithAI(fixerPrompt);
+
+  if (javaFullstack) {
+    return keepJavaAiWritableFiles(result);
+  }
 
   return pythonFullstack ? keepAiWritableFiles(result) : result;
 };

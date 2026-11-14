@@ -9,6 +9,7 @@ import {
   getConsoleLanguage,
   languageLabel,
   isPythonFullstack,
+  isJavaFullstack,
 } from "@/lib/projectType";
 
 function NewProject({ onClose, onProjectCreated }) {
@@ -35,6 +36,7 @@ function NewProject({ onClose, onProjectCreated }) {
     "Python",
     "FastAPI",
     "Java",
+    "Spring Boot",
   ];
 
   const handleNameChange = (e) => {
@@ -229,6 +231,16 @@ function NewProject({ onClose, onProjectCreated }) {
                 Python full-stack: FastAPI backend + React frontend with real
                 login. Data is stored in JSON files, so no database URL is
                 needed (a selected database is not used).
+              </p>
+            )}
+
+            {/* Java + React / Spring Boot: full-stack app with real login */}
+            {isJavaFullstack(formData.techStack) && (
+              <p className="mt-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-5 text-primary">
+                Java full-stack: Spring Boot backend + React frontend with real
+                login. Data is stored in JSON files, so no database URL is
+                needed (a selected database is not used). The first build can
+                take several minutes.
               </p>
             )}
 

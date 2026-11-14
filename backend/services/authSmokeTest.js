@@ -4,6 +4,8 @@ import {
 } from "./validators/apiContractValidator.js";
 import { isPythonFullstackFiles } from "./stacks/python/detect.js";
 import runPythonAuthSmokeTest from "./stacks/python/authSmokeTest.js";
+import { isJavaFullstackFiles } from "./stacks/java/detect.js";
+import runJavaAuthSmokeTest from "./stacks/java/authSmokeTest.js";
 
 // After the generated app starts in Docker, exercise the real login flow
 // the way the browser does: through the frontend dev server, whose /api
@@ -118,6 +120,10 @@ const buildBody = (keys, credentials) => {
 const runAuthSmokeTest = async ({ files = [], previewUrl, projectId }) => {
   if (isPythonFullstackFiles(files)) {
     return runPythonAuthSmokeTest({ files, previewUrl, projectId });
+  }
+
+  if (isJavaFullstackFiles(files)) {
+    return runJavaAuthSmokeTest({ files, previewUrl, projectId });
   }
 
   const { endpoints } = extractBackendEndpoints(files);

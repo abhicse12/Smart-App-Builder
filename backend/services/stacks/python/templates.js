@@ -30,6 +30,10 @@ const AI_PATHS = [
   /^README\.md$/,
 ];
 
+// Build output an IDE may create inside the templates (e.g. the VS Code Java
+// extension builds backend/target/); never part of a generated project
+const SKIPPED_DIRS = new Set(["target", "node_modules", "__pycache__", ".venv"]);
+
 const normalizePath = (filePath = "") =>
   String(filePath).replace(/\\/g, "/").replace(/^\.\//, "");
 
@@ -38,7 +42,7 @@ const readTemplates = (directory = TEMPLATES_DIR) =>
     const fullPath = path.join(directory, entry.name);
 
     if (entry.isDirectory()) {
-      return readTemplates(fullPath);
+      return SKIPPED_DIRS.has(entry.name) ? [] : readTemplates(fullPath);
     }
 
     const relativePath = path

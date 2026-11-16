@@ -1,6 +1,6 @@
-import dotenv from "dotenv";
-
-dotenv.config();
+// Must be the first import: imports are evaluated before this file's own
+// code, and app.js reads TRUST_PROXY and CLIENT_URL while it is loaded
+import "dotenv/config";
 
 import app from "./app.js";
 import connectDB from "./config/db.js";

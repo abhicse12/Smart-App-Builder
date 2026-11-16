@@ -11,15 +11,19 @@
 // first project waits for them. Generated code can write to that volume, which
 // is acceptable on a local machine but not for public hosting.
 
+import { runDetachedContainer } from "../../containerUser.js";
+
 const BACKEND_PORT = 5001;
 const FRONTEND_PORT = 5173;
 const BACKEND_IMAGE = "maven:3.9-eclipse-temurin-21";
 const MAVEN_CACHE_VOLUME = "ai-builder-maven-cache";
+// Not /root/.m2: a container running as a non-root user cannot enter /root
+const MAVEN_CACHE_DIR = "/maven-cache";
 
 const BACKEND_START =
   "mkdir -p /tmp/build " +
   "&& cp -r pom.xml src /tmp/build/ " +
-  "&& mvn -q -B -ntp -f /tmp/build/pom.xml -DskipTests package " +
+  `&& mvn -q -B -ntp -Dmaven.repo.local=${MAVEN_CACHE_DIR}/repository -f /tmp/build/pom.xml -DskipTests package ` +
   "&& exec java -Xmx384m -jar /tmp/build/target/app.jar";
 
 // "npm run build" compiles every module first, so a broken import fails
@@ -93,7 +97,7 @@ export const runJavaFullstack = async ({
   containerName,
   docker,
 }) => {
-  await docker.runCommand("docker", [
+  await runDetachedContainer(docker.runCommand, [
     "run",
     "-d",
     "--name",
@@ -111,9 +115,12 @@ export const runJavaFullstack = async ({
     "--tmpfs",
     "/tmp:exec",
     "-e",
-    "MAVEN_OPTS=-Xmx384m",
+    "MAVEN_OPTS=-Xmx384m -Duser.home=/tmp",
+    // The image's entrypoint copies its reference settings here
+    "-e",
+    `MAVEN_CONFIG=${MAVEN_CACHE_DIR}`,
     "-v",
-    `${MAVEN_CACHE_VOLUME}:/root/.m2`,
+    `${MAVEN_CACHE_VOLUME}:${MAVEN_CACHE_DIR}`,
     "-v",
     `${projectRoot}/backend:/app/backend:ro`,
     "-v",
@@ -132,7 +139,7 @@ export const runJavaFullstack = async ({
 
   const frontendName = frontendContainerName(containerName);
 
-  await docker.runCommand("docker", [
+  await runDetachedContainer(docker.runCommand, [
     "run",
     "-d",
     "--name",

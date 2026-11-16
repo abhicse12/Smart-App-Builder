@@ -8,6 +8,7 @@ import {
 } from "./stacks/python/runner.js";
 import { runJavaFullstack } from "./stacks/java/runner.js";
 import { makeRoomForPreview } from "./previewManager.js";
+import { runDetachedContainer } from "./containerUser.js";
 
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -1161,7 +1162,7 @@ const runProject = async (projectId) => {
       "Starting React + Vite project..."
     );
 
-    await runCommand("docker", [
+    await runDetachedContainer(runCommand, [
       "run",
       "-d",
 
@@ -1299,7 +1300,7 @@ const runProject = async (projectId) => {
       );
     }
 
-    await runCommand("docker", [
+    await runDetachedContainer(runCommand, [
       "run",
       "-d",
 

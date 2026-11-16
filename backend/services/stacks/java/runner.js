@@ -11,6 +11,7 @@
 // first project waits for them. Generated code can write to that volume, which
 // is acceptable on a local machine but not for public hosting.
 
+import fs from "fs";
 import { runDetachedContainer } from "../../containerUser.js";
 
 const BACKEND_PORT = 5001;
@@ -97,6 +98,10 @@ export const runJavaFullstack = async ({
   containerName,
   docker,
 }) => {
+  // A project restored from MongoDB may have no data files yet; Docker would
+  // create the missing mount source as root, which the app could not write
+  fs.mkdirSync(`${projectRoot}/backend/data`, { recursive: true });
+
   await runDetachedContainer(docker.runCommand, [
     "run",
     "-d",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X } from "lucide-react";
 
@@ -14,6 +14,11 @@ import {
 
 function NewProject({ onClose, onProjectCreated }) {
   const navigate = useNavigate();
+
+  // A double click must not create the project twice. The ref blocks the
+  // second click at once; the state disables the button for the user.
+  const submittingRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -72,6 +77,13 @@ function NewProject({ onClose, onProjectCreated }) {
     return;
   }
 
+  if (submittingRef.current) {
+    return;
+  }
+
+  submittingRef.current = true;
+  setIsSubmitting(true);
+
   try {
     const response = await fetch(
       `${API_BASE_URL}/api/projects`,
@@ -105,13 +117,24 @@ function NewProject({ onClose, onProjectCreated }) {
   } catch (error) {
     console.error("Create Project Error:", error);
     alert(error.message);
+
+    // Allow a retry; after success the modal closes instead
+    submittingRef.current = false;
+    setIsSubmitting(false);
   }
 };
+
+  // No closing the modal while the request is still running
+  const handleClose = () => {
+    if (!submittingRef.current) {
+      onClose();
+    }
+  };
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/20 px-4 backdrop-blur-md animate-in fade-in duration-200 dark:bg-black/50"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="glass-strong pop-in max-h-[90dvh] w-full max-w-xl overflow-y-auto rounded-3xl p-6 sm:p-7"
@@ -132,7 +155,8 @@ function NewProject({ onClose, onProjectCreated }) {
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={isSubmitting}
             aria-label="Close"
             className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
@@ -271,13 +295,19 @@ function NewProject({ onClose, onProjectCreated }) {
               type="button"
               variant="outline"
               className="h-9 rounded-xl px-4"
-              onClick={onClose}
+              onClick={handleClose}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
 
-            <Button type="submit" className="h-9 rounded-xl px-5">
-              Create Project
+            <Button
+              type="submit"
+              className="h-9 rounded-xl px-5"
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting ? "Creating..." : "Create Project"}
             </Button>
           </div>
 

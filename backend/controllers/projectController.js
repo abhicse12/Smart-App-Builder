@@ -21,6 +21,34 @@ import fixProject from "../services/fixerService.js";
 import syncProjectFiles from "../services/syncProjectFiles.js";
 import { errorDetails } from "../utils/errorResponse.js";
 
+// The project lives in MongoDB; its folder in generated-projects is only a
+// working copy. A new server or a cleaned disk has no folder, so it is
+// rebuilt from the stored files. Returns the folder, or null when there is
+// nothing to rebuild it from.
+const ensureProjectFolder = async (project) => {
+  const projectPath = path.join(
+    process.cwd(),
+    "generated-projects",
+    project._id.toString()
+  );
+
+  if (fs.existsSync(projectPath)) {
+    return projectPath;
+  }
+
+  if (!Array.isArray(project.files) || project.files.length === 0) {
+    return null;
+  }
+
+  console.log(
+    `Project folder missing: restoring ${project.files.length} files of ${project._id} from MongoDB`
+  );
+
+  await writeProjectFiles(project._id, project.files);
+
+  return projectPath;
+};
+
 // Folders left out of project downloads (dependencies, build output,
 // caches); same list as syncProjectFiles
 const DOWNLOAD_SKIPPED_DIRECTORIES = [
@@ -244,13 +272,9 @@ export const downloadProject = async (req, res) => {
       });
     }
 
-    const projectPath = path.join(
-      process.cwd(),
-      "generated-projects",
-      id.toString()
-    );
+    const projectPath = await ensureProjectFolder(project);
 
-    if (!fs.existsSync(projectPath)) {
+    if (!projectPath) {
       return res.status(404).json({
         success: false,
         message: "Generated project files not found",
@@ -322,13 +346,9 @@ export const runProject = async (req, res) => {
       });
     }
 
-    const projectPath = path.join(
-      process.cwd(),
-      "generated-projects",
-      id.toString()
-    );
+    const projectPath = await ensureProjectFolder(project);
 
-    if (!fs.existsSync(projectPath)) {
+    if (!projectPath) {
       return res.status(404).json({
         success: false,
         message: "Generated project files not found",

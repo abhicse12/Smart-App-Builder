@@ -605,6 +605,7 @@ Open `http://localhost:5173`, sign up, create a project, select a stack, and des
 | `PREVIEW_BASE_DOMAIN` | — | — | Previews become `https://p<port>.<domain>`; the reverse proxy forwards them to `127.0.0.1:<port>` |
 | `MAX_RUNNING_PREVIEWS` | — | no limit | Starting one more preview stops the oldest |
 | `PREVIEW_TTL_MINUTES` | — | never | Previews stop automatically after this many minutes |
+| `CONTAINER_USER` | — | backend's uid:gid on Linux, image user elsewhere | User the project containers run as (`uid:gid` or `image`) |
 
 \* The server starts without it, but RAG retrieval needs Gemini embeddings.
 

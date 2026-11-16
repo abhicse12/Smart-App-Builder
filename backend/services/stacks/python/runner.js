@@ -7,6 +7,8 @@
 // The backend sees the source read-only; only backend/data is writable.
 // Python packages stay in the container's /tmp, never in the project folder.
 
+import { runDetachedContainer } from "../../containerUser.js";
+
 const BACKEND_PORT = 5001;
 const FRONTEND_PORT = 5173;
 
@@ -98,7 +100,7 @@ export const runPythonFullstack = async ({
   containerName,
   docker,
 }) => {
-  await docker.runCommand("docker", [
+  await runDetachedContainer(docker.runCommand, [
     "run",
     "-d",
     "--name",
@@ -139,7 +141,7 @@ export const runPythonFullstack = async ({
 
   const frontendName = frontendContainerName(containerName);
 
-  await docker.runCommand("docker", [
+  await runDetachedContainer(docker.runCommand, [
     "run",
     "-d",
     "--name",
